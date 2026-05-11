@@ -596,6 +596,168 @@
     text-transform: uppercase;
   }
 
+  /* ─────────────────────────────────────────────────────────
+     PDF rendering mode — applies when body has .pdf-rendering
+     class (set just before html2pdf captures the page).
+     Mirrors many @media print rules so html2canvas's capture
+     looks the same as a real print preview.
+     ───────────────────────────────────────────────────────── */
+  body.pdf-rendering {
+    background: #ffffff;
+    font-family: "Helvetica Neue", "Segoe UI", "Arial", sans-serif;
+    color: #1d2b1d;
+  }
+  body.pdf-rendering .no-print,
+  body.pdf-rendering #panel1,
+  body.pdf-rendering #panel2,
+  body.pdf-rendering .app-header,
+  body.pdf-rendering .steps-bar,
+  body.pdf-rendering #loginGate,
+  body.pdf-rendering #clientPicker,
+  body.pdf-rendering #wfSaveBtn,
+  body.pdf-rendering .apply-all-bar { display: none !important; }
+  body.pdf-rendering #panel3 { display: block !important; padding: 0 !important; }
+  body.pdf-rendering .panel { padding: 0 !important; }
+
+  /* Each top-level document starts on a new page */
+  body.pdf-rendering .doc-card {
+    box-shadow: none !important;
+    border: none !important;
+    page-break-before: always;
+    break-before: page;
+    margin: 0 !important; padding: 0 !important;
+    background: #fff !important;
+  }
+  body.pdf-rendering .doc-card:first-child {
+    page-break-before: auto;
+    break-before: auto;
+  }
+  body.pdf-rendering .doc-card-header {
+    background: #f5f7f1 !important; padding: 6px 10px !important;
+    page-break-after: avoid; break-after: avoid;
+    border-bottom: 1px solid #c8dfc2 !important;
+  }
+  body.pdf-rendering .doc-body { display: block !important; padding: 10px 14px !important; }
+
+  /* Section headings stay glued to their content */
+  body.pdf-rendering .doc-section-h,
+  body.pdf-rendering h1, body.pdf-rendering h2, body.pdf-rendering h3,
+  body.pdf-rendering h4, body.pdf-rendering h5, body.pdf-rendering h6,
+  body.pdf-rendering .doc-card-title,
+  body.pdf-rendering .form-section-title {
+    page-break-after: avoid !important; break-after: avoid !important;
+    page-break-inside: avoid !important; break-inside: avoid !important;
+  }
+  body.pdf-rendering .doc-section-h + *,
+  body.pdf-rendering h1 + *, body.pdf-rendering h2 + *, body.pdf-rendering h3 + *,
+  body.pdf-rendering h4 + *, body.pdf-rendering h5 + *, body.pdf-rendering h6 + * {
+    page-break-before: avoid !important; break-before: avoid !important;
+  }
+
+  /* Tables: never split rows */
+  body.pdf-rendering table, body.pdf-rendering .doc-table {
+    width: 100% !important; max-width: 100% !important;
+    table-layout: fixed !important; border-collapse: collapse !important;
+  }
+  body.pdf-rendering .doc-table th,
+  body.pdf-rendering .doc-table td,
+  body.pdf-rendering table th,
+  body.pdf-rendering table td {
+    padding: 4px 6px !important;
+    font-size: 9.5pt !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    word-break: break-word !important;
+    white-space: normal !important;
+  }
+  body.pdf-rendering tr { page-break-inside: avoid; break-inside: avoid; }
+  body.pdf-rendering thead { display: table-header-group; }
+
+  /* Force-expand all details/collapsible blocks */
+  body.pdf-rendering details { display: block !important; }
+  body.pdf-rendering details summary { list-style: none; cursor: default; }
+  body.pdf-rendering details summary::-webkit-details-marker { display: none; }
+  body.pdf-rendering details > div { display: block !important; padding-left: 0 !important; }
+  body.pdf-rendering details:not([open]) > *:not(summary) { display: block !important; }
+
+  /* Inputs render as underlined text, no borders/boxes */
+  body.pdf-rendering input[type="text"],
+  body.pdf-rendering input[type="date"],
+  body.pdf-rendering input[type="email"],
+  body.pdf-rendering input[type="tel"],
+  body.pdf-rendering input[type="number"],
+  body.pdf-rendering select,
+  body.pdf-rendering textarea {
+    border: none !important;
+    border-bottom: 1px solid #1a4f8a !important;
+    background: transparent !important;
+    color: #000 !important;
+    box-shadow: none !important;
+    padding: 1px 2px !important;
+    -webkit-appearance: none; appearance: none;
+    max-width: 100% !important; box-sizing: border-box !important;
+  }
+  body.pdf-rendering input::placeholder,
+  body.pdf-rendering textarea::placeholder { color: transparent !important; }
+  body.pdf-rendering input.ff-inline {
+    border-bottom: 1.5px solid #1a4f8a !important;
+    background: transparent !important;
+  }
+
+  /* Compact signature slots */
+  body.pdf-rendering .sig-slot {
+    min-width: 140px !important; max-width: 100% !important;
+    min-height: 24px !important; height: 28px !important;
+    padding: 0 4px !important;
+    border-bottom: 1px solid #1a4f8a !important;
+    border-radius: 0 !important;
+    display: inline-block !important; vertical-align: bottom !important;
+    cursor: default !important;
+  }
+  body.pdf-rendering .sig-slot img { max-height: 24px !important; max-width: 130px !important; }
+  body.pdf-rendering .sig-slot-hint { display: none !important; }
+  body.pdf-rendering .sig-slot.applied::after { display: none !important; }
+  body.pdf-rendering .sig-slot:hover { background: transparent !important; }
+
+  /* Keep important blocks together */
+  body.pdf-rendering .doc-info-box,
+  body.pdf-rendering .doc-note,
+  body.pdf-rendering .alert,
+  body.pdf-rendering .sig-row,
+  body.pdf-rendering .acknowledgement,
+  body.pdf-rendering .form-section,
+  body.pdf-rendering fieldset {
+    page-break-inside: avoid; break-inside: avoid;
+  }
+
+  /* Body text refinements */
+  body.pdf-rendering p, body.pdf-rendering li { orphans: 3; widows: 3; font-size: 10.5pt; line-height: 1.5; }
+
+  /* Document cover — clean, branded, centered */
+  body.pdf-rendering .doc-cover {
+    padding: 14pt 0 12pt 0 !important;
+    margin-bottom: 16pt !important;
+    border-bottom: 2pt solid var(--odc-green) !important;
+    page-break-after: avoid !important; break-after: avoid !important;
+  }
+  body.pdf-rendering .doc-cover-logo img,
+  body.pdf-rendering .doc-cover-logo svg { height: 48pt !important; width: auto !important; }
+  body.pdf-rendering .doc-cover-title {
+    font-size: 17pt !important; margin-top: 9pt !important;
+    color: #122 !important; font-weight: 800 !important;
+  }
+  body.pdf-rendering .doc-cover-subtitle {
+    font-size: 10.5pt !important; margin-top: 4pt !important; color: #555 !important;
+  }
+  body.pdf-rendering .doc-cover-version {
+    font-size: 8.5pt !important; margin-top: 7pt !important;
+    color: #666 !important; letter-spacing: 0.6pt;
+  }
+
+  body.pdf-rendering img { max-width: 100% !important; height: auto !important; }
+  body.pdf-rendering .doc-card, body.pdf-rendering .doc-body,
+  body.pdf-rendering .doc-info-box { overflow: visible !important; max-width: 100% !important; }
+
   /* ── Responsive ── */
   @media (max-width: 768px) {
     /* Header */
@@ -1236,7 +1398,9 @@
     </div>
     <div class="d-flex gap-2 flex-wrap">
       <button class="btn btn-odc btn-sm" onclick="applyAll()">✍️ Apply Signature to ALL Fields</button>
-      <button class="btn btn-odc btn-sm" onclick="openPrintModal()">🖨️ Print Documents</button>
+      <button class="btn btn-sm" style="background:#1a5fa0; color:#fff; border:none; font-weight:600; padding:7px 14px; border-radius:6px;" onclick="downloadAsPdf()">📥 Download PDF</button>
+      <button class="btn btn-sm" style="background:#5b3a8e; color:#fff; border:none; font-weight:600; padding:7px 14px; border-radius:6px;" onclick="emailPdf()">📧 Email PDF</button>
+      <button class="btn btn-odc btn-sm" onclick="openPrintModal()">🖨️ Print</button>
       <button class="btn btn-sm" onclick="clearAllAndReload(true)" title="Wipe all data and start fresh for a new participant" style="background:#fff; color:#a64b1a; border:1.5px solid #d99656; font-weight:600;">🗑 Clear All</button>
     </div>
   </div>
@@ -1508,96 +1672,294 @@ function printSelected(){
 // PDF DOWNLOAD — generate a real .pdf file using html2pdf.js
 // (bundles html2canvas + jsPDF; loaded from cdnjs in <head>)
 // ═══════════════════════════════════════════════════════════════════
-window.downloadAsPdf = async function(){
+// Internal helper used by both download + email. Returns { blob, filename, clientName }
+// (returns blob when wantBlob is true; otherwise auto-saves via html2pdf .save()).
+async function _generateServiceAgreementPdf(wantBlob){
   if (typeof html2pdf === 'undefined') {
-    alert('PDF library failed to load. Please refresh and try again.');
-    return;
+    throw new Error('PDF library failed to load. Please refresh and try again.');
   }
-  // Validate selection
-  const checks = document.querySelectorAll('.docpick');
-  let anyChecked = false;
-  checks.forEach(c => { if (c.checked) anyChecked = true; });
-  if (!anyChecked) { alert('Please select at least one document to download as PDF.'); return; }
 
-  // Show a small "generating…" toast
-  const toast = document.createElement('div');
-  toast.style.cssText = 'position:fixed; top:14px; right:14px; max-width:340px; padding:12px 16px; border-radius:8px; box-shadow:0 6px 20px rgba(0,0,0,0.18); z-index:99999; font-size:.86rem; background:#eaf3ff; border:1px solid #6b9bd1; color:#1a4a7a;';
-  toast.innerHTML = '📥 <strong>Generating PDF…</strong><br><small>This may take 10–30 seconds for the full Service Agreement.</small>';
-  document.body.appendChild(toast);
+  // Make sure the Service Agreement card is selected (only one exists now)
+  document.querySelectorAll('.docpick').forEach(c => { c.checked = true; });
 
-  // Save current state so we can restore after PDF generation
-  _restorePrintSelection();
-  const hiddenCards = [];
+  // Force-open every <details> so the PDF includes the full content
   const openedDetails = [];
-
-  // Hide unchecked cards
-  checks.forEach(c => {
-    if (!c.checked) {
-      const card = document.getElementById(c.dataset.target);
-      if (card) { card.style.display = 'none'; hiddenCards.push(card); }
-    }
-  });
-  // Force-open every collapsed <details> in visible cards
   document.querySelectorAll('#docsContainer details:not([open])').forEach(d => {
-    let parent = d.closest('.doc-card');
-    if (parent && parent.style.display === 'none') return;
     d.setAttribute('open',''); openedDetails.push(d);
   });
 
+  // Add a body class so the PDF-only CSS rules activate
+  document.body.classList.add('pdf-rendering');
+
+  // Give layout a tick to reflow with details opened + class applied
+  await new Promise(r => setTimeout(r, 250));
+
   // Build filename: ODC-ServiceAgreement_{ClientName}_{date}.pdf
+  let clientName = '';
   let nameBit = '';
   try {
     const nameEl = document.getElementById('f_name');
     if (nameEl && nameEl.value) {
-      nameBit = '_' + nameEl.value.trim().replace(/[\\/:*?"<>|#%&{}]/g, '').replace(/\s+/g, '-').slice(0, 40);
+      clientName = nameEl.value.trim();
+      nameBit = '_' + clientName.replace(/[\\/:*?"<>|#%&{}]/g, '').replace(/\s+/g, '-').slice(0, 40);
     }
   } catch(e){}
   const stamp = new Date().toISOString().slice(0, 10);
   const filename = 'ODC-ServiceAgreement' + nameBit + '_' + stamp + '.pdf';
 
-  // Target element to convert — the visible Service Agreement card(s)
   const target = document.getElementById('docsContainer');
 
-  // Give the layout a tick to reflow with all the details opened
-  await new Promise(r => setTimeout(r, 200));
+  const opts = {
+    margin: [12, 10, 14, 10], // mm: top, right, bottom, left
+    filename: filename,
+    image: { type: 'jpeg', quality: 0.96 },
+    html2canvas: {
+      scale: 2,
+      useCORS: true,
+      letterRendering: true,
+      logging: false,
+      backgroundColor: '#ffffff',
+      windowWidth: 1100   // render at a comfortable desktop width for clean text
+    },
+    jsPDF: {
+      unit: 'mm',
+      format: 'a4',
+      orientation: 'portrait',
+      compress: true,
+      hotfixes: ['px_scaling']
+    },
+    pagebreak: {
+      mode: ['css', 'legacy'],
+      before: '.doc-card',              // each top-level doc starts on a new page
+      avoid: [
+        'tr',                           // never split a table row
+        '.doc-section-h',               // keep section headers with content
+        '.doc-info-box',
+        '.doc-note',
+        '.doc-card-title',
+        '.sig-row',
+        '.acknowledgement'
+      ]
+    }
+  };
 
   try {
-    await html2pdf().set({
-      margin: [10, 10, 10, 10], // mm: top, right, bottom, left
-      filename: filename,
-      image: { type: 'jpeg', quality: 0.95 },
-      html2canvas: {
-        scale: 2,                 // higher = sharper text; 2× is a good balance
-        useCORS: true,
-        logging: false,
-        windowWidth: target.scrollWidth
-      },
-      jsPDF: {
-        unit: 'mm',
-        format: 'a4',
-        orientation: 'portrait',
-        compress: true
-      },
-      pagebreak: { mode: ['css', 'legacy'], avoid: ['tr', '.no-page-break'] }
-    }).from(target).save();
-
-    toast.innerHTML = '✓ <strong>PDF downloaded:</strong> ' + filename;
-    toast.style.background = '#eef9ea';
-    toast.style.borderColor = '#4a7a3c';
-    toast.style.color = '#2f4a2a';
-    setTimeout(() => { try { toast.remove(); } catch(e){} }, 4000);
-  } catch(e) {
-    console.error('[PDF] generation failed:', e);
-    toast.innerHTML = '✗ <strong>PDF failed:</strong> ' + (e.message || e);
-    toast.style.background = '#fef3ef';
-    toast.style.borderColor = '#d99656';
-    toast.style.color = '#7a4a1a';
-    setTimeout(() => { try { toast.remove(); } catch(e){} }, 8000);
+    if (wantBlob) {
+      const blob = await html2pdf().set(opts).from(target).output('blob');
+      return { blob, filename, clientName };
+    } else {
+      await html2pdf().set(opts).from(target).save();
+      return { blob: null, filename, clientName };
+    }
   } finally {
     // Restore UI state
-    hiddenCards.forEach(c => c.style.display = '');
     openedDetails.forEach(d => d.removeAttribute('open'));
+    document.body.classList.remove('pdf-rendering');
   }
+}
+
+function _showToast(html, kind){
+  const colors = {
+    info:    { bg:'#eaf3ff', border:'#6b9bd1', text:'#1a4a7a' },
+    success: { bg:'#eef9ea', border:'#4a7a3c', text:'#2f4a2a' },
+    error:   { bg:'#fef3ef', border:'#d99656', text:'#7a4a1a' },
+  };
+  const c = colors[kind] || colors.info;
+  const t = document.createElement('div');
+  t.style.cssText = 'position:fixed; top:14px; right:14px; max-width:360px; padding:12px 16px; border-radius:8px; box-shadow:0 6px 20px rgba(0,0,0,0.18); z-index:99999; font-size:.86rem; line-height:1.45; background:' + c.bg + '; border:1px solid ' + c.border + '; color:' + c.text + ';';
+  t.innerHTML = html + ' <button onclick="this.parentNode.remove()" style="float:right; background:none; border:none; cursor:pointer; font-size:1.1rem; padding:0 0 0 8px; color:inherit;">&times;</button>';
+  document.body.appendChild(t);
+  return t;
+}
+
+window.downloadAsPdf = async function(){
+  const toast = _showToast('📥 <strong>Generating PDF…</strong><br><small>This may take 10–30 seconds for the full Service Agreement.</small>', 'info');
+  try {
+    const { filename } = await _generateServiceAgreementPdf(false);
+    toast.remove();
+    _showToast('✓ <strong>PDF downloaded:</strong> ' + filename, 'success');
+    setTimeout(() => { try { toast.remove(); } catch(e){} }, 5000);
+  } catch(e) {
+    console.error('[PDF] generation failed:', e);
+    toast.remove();
+    _showToast('✗ <strong>PDF failed:</strong> ' + (e.message || e), 'error');
+  }
+};
+
+// Create (or ensure) the PDFs subfolder inside Service Agreement Records/
+async function _spEnsurePdfFolder(){
+  const driveId = await _spGetDriveId();
+  const pdfPath = SP_CONFIG.spFolderPath + '/PDFs';
+  const probeUrl = 'https://graph.microsoft.com/v1.0/drives/' + driveId
+    + '/root:/' + _spEncodePath(pdfPath);
+  try { await _graph(probeUrl); return; }
+  catch(e) { if (!/Graph 404/.test(e.message)) throw e; }
+  // Create
+  const parentUrl = 'https://graph.microsoft.com/v1.0/drives/' + driveId
+    + '/root:/' + _spEncodePath(SP_CONFIG.spFolderPath) + ':/children';
+  await _graph(parentUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'PDFs', folder: {}, '@microsoft.graph.conflictBehavior': 'fail' })
+  });
+}
+
+// Try to create a sharing link. Falls back through several scopes if the
+// tenant restricts certain sharing types.
+async function _spCreateShareLink(driveId, itemId){
+  const url = 'https://graph.microsoft.com/v1.0/drives/' + driveId + '/items/' + itemId + '/createLink';
+  // Order of preference: anonymous (works for external clients) →
+  // organization (any ODC member) → users (current user only)
+  const attempts = [
+    { type: 'view', scope: 'anonymous' },
+    { type: 'view', scope: 'organization' },
+    { type: 'view' }
+  ];
+  let lastErr = null;
+  for (const body of attempts) {
+    try {
+      const res = await _graph(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (data && data.link && data.link.webUrl) {
+        return { webUrl: data.link.webUrl, scope: body.scope || 'default' };
+      }
+    } catch(e) {
+      lastErr = e;
+      console.warn('[Email] createLink attempt failed (scope=' + body.scope + '):', e.message);
+    }
+  }
+  throw lastErr || new Error('Could not create share link');
+}
+
+window.emailPdf = async function(){
+  const toast = _showToast('📥 <strong>Generating PDF…</strong><br><small>This may take 10–30 seconds.</small>', 'info');
+  let pdfBlob = null, filename = '', clientName = '';
+
+  // Step 1: generate PDF as blob (no download yet)
+  try {
+    const result = await _generateServiceAgreementPdf(true);
+    pdfBlob = result.blob;
+    filename = result.filename;
+    clientName = result.clientName;
+    if (!pdfBlob) throw new Error('PDF generation returned no data');
+  } catch(e) {
+    console.error('[Email] PDF generation failed:', e);
+    toast.remove();
+    _showToast('✗ <strong>PDF generation failed:</strong> ' + (e.message || e), 'error');
+    return;
+  }
+
+  // Step 2: ensure signed in
+  if (!_msal || !_spCurrentAccount()) {
+    toast.innerHTML = '🔐 <strong>Sign in required</strong>…';
+    await window.spSignIn();
+    if (!_spCurrentAccount()) {
+      toast.remove();
+      _showToast('Sign-in cancelled — PDF not uploaded.', 'error');
+      return;
+    }
+  }
+
+  // Step 3: upload PDF to SharePoint → /Service Agreement Records/PDFs/
+  toast.innerHTML = '☁️ <strong>Uploading PDF to SharePoint…</strong>';
+  let uploadedItem = null;
+  try {
+    await _spEnsureBaseFolder();
+    await _spEnsurePdfFolder();
+    const driveId = await _spGetDriveId();
+
+    // Make filename unique with HH-MM-SS so multiple sends per day don't collide
+    const now = new Date();
+    const timeStamp = now.toISOString().slice(11,19).replace(/:/g,'-');
+    const uniqueFilename = filename.replace(/\.pdf$/i, '_' + timeStamp + '.pdf');
+
+    const pdfPath = SP_CONFIG.spFolderPath + '/PDFs/' + uniqueFilename;
+    const uploadUrl = 'https://graph.microsoft.com/v1.0/drives/' + driveId
+      + '/root:/' + _spEncodePath(pdfPath) + ':/content';
+    const uploadRes = await _graph(uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/pdf' },
+      body: pdfBlob
+    });
+    uploadedItem = await uploadRes.json();
+    filename = uniqueFilename;
+  } catch(e) {
+    console.error('[Email] upload failed:', e);
+    toast.remove();
+    // Fall back: download the blob locally so the user can attach manually
+    try {
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { try { document.body.removeChild(a); URL.revokeObjectURL(url); } catch(e){} }, 200);
+    } catch(e2){}
+    _showToast('⚠ <strong>Upload failed</strong> — PDF downloaded locally instead. Please attach it manually.<br><small>' + (e.message || e) + '</small>', 'error');
+    return;
+  }
+
+  // Step 4: create sharing link
+  toast.innerHTML = '🔗 <strong>Creating share link…</strong>';
+  let shareUrl = null;
+  let linkScope = '';
+  try {
+    const driveId = await _spGetDriveId();
+    const { webUrl, scope } = await _spCreateShareLink(driveId, uploadedItem.id);
+    shareUrl = webUrl;
+    linkScope = scope;
+  } catch(e) {
+    console.error('[Email] share link failed:', e);
+    // Use direct SharePoint URL as a last resort (works only for ODC members)
+    shareUrl = uploadedItem.webUrl || '';
+    linkScope = 'direct';
+  }
+
+  // Step 5: open mailto: with link in body
+  let to = '';
+  try {
+    const emailEl = document.getElementById('f_email');
+    if (emailEl && emailEl.value) to = emailEl.value.trim();
+  } catch(e){}
+  const firstName = clientName ? clientName.split(' ')[0] : '';
+  const subject = 'ODC Service Agreement' + (clientName ? ' — ' + clientName : '');
+  const bodyLines = [
+    'Hi' + (firstName ? ' ' + firstName : '') + ',',
+    '',
+    'Please find your One Dream Community Service Agreement at the link below:',
+    '',
+    shareUrl,
+    '',
+    'You can view and download the PDF directly from the link — no attachment needed.',
+    '',
+    'Kind regards,',
+    'One Dream Community'
+  ];
+  const mailtoUrl = 'mailto:' + encodeURIComponent(to)
+    + '?subject=' + encodeURIComponent(subject)
+    + '&body=' + encodeURIComponent(bodyLines.join('\n'));
+
+  const a = document.createElement('a');
+  a.href = mailtoUrl; a.target = '_self';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+
+  toast.remove();
+  const scopeNote = {
+    'anonymous': 'Anyone with the link can view (no sign-in needed)',
+    'organization': 'Only ODC members can view this link',
+    'default': 'Limited sharing — recipients may need to sign in',
+    'direct': 'Direct SharePoint URL — ODC members only (sharing API blocked by tenant settings)'
+  }[linkScope] || 'Link created';
+  const safeFilename = String(filename).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  _showToast(
+    '✓ <strong>PDF uploaded &amp; email opened.</strong><br>' +
+    '<small><strong>' + safeFilename + '</strong> saved to SharePoint.<br>' +
+    'Link in email — ' + scopeNote + '.</small>',
+    'success'
+  );
 };
 
 // printOne also opens collapsed details inside the chosen doc
