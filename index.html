@@ -8,6 +8,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/signature_pad/4.1.7/signature_pad.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+<!-- html2pdf.js for automatic PDF download (bundles html2canvas + jsPDF) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <!-- Microsoft Authentication Library (MSAL) — load with multi-CDN fallback.
      Some networks block specific CDNs; we try cdnjs first, then jsdelivr. -->
 <script>
@@ -1265,6 +1267,7 @@
       </div>
       <div class="print-modal-actions">
         <button class="btn btn-odc-outline btn-sm" onclick="closePrintModal()">Cancel</button>
+        <button class="btn btn-sm" style="background:#1a5fa0; color:#fff; border:none; font-weight:600; padding:8px 16px; border-radius:4px;" onclick="closePrintModal();downloadAsPdf();">📥 Download PDF</button>
         <button class="btn btn-odc btn-sm" onclick="closePrintModal();printSelected();">🖨️ Print Selected</button>
       </div>
     </div>
@@ -1500,6 +1503,102 @@ function printSelected(){
     setTimeout(_restorePrintSelection, 2000);
   }, 120);
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// PDF DOWNLOAD — generate a real .pdf file using html2pdf.js
+// (bundles html2canvas + jsPDF; loaded from cdnjs in <head>)
+// ═══════════════════════════════════════════════════════════════════
+window.downloadAsPdf = async function(){
+  if (typeof html2pdf === 'undefined') {
+    alert('PDF library failed to load. Please refresh and try again.');
+    return;
+  }
+  // Validate selection
+  const checks = document.querySelectorAll('.docpick');
+  let anyChecked = false;
+  checks.forEach(c => { if (c.checked) anyChecked = true; });
+  if (!anyChecked) { alert('Please select at least one document to download as PDF.'); return; }
+
+  // Show a small "generating…" toast
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed; top:14px; right:14px; max-width:340px; padding:12px 16px; border-radius:8px; box-shadow:0 6px 20px rgba(0,0,0,0.18); z-index:99999; font-size:.86rem; background:#eaf3ff; border:1px solid #6b9bd1; color:#1a4a7a;';
+  toast.innerHTML = '📥 <strong>Generating PDF…</strong><br><small>This may take 10–30 seconds for the full Service Agreement.</small>';
+  document.body.appendChild(toast);
+
+  // Save current state so we can restore after PDF generation
+  _restorePrintSelection();
+  const hiddenCards = [];
+  const openedDetails = [];
+
+  // Hide unchecked cards
+  checks.forEach(c => {
+    if (!c.checked) {
+      const card = document.getElementById(c.dataset.target);
+      if (card) { card.style.display = 'none'; hiddenCards.push(card); }
+    }
+  });
+  // Force-open every collapsed <details> in visible cards
+  document.querySelectorAll('#docsContainer details:not([open])').forEach(d => {
+    let parent = d.closest('.doc-card');
+    if (parent && parent.style.display === 'none') return;
+    d.setAttribute('open',''); openedDetails.push(d);
+  });
+
+  // Build filename: ODC-ServiceAgreement_{ClientName}_{date}.pdf
+  let nameBit = '';
+  try {
+    const nameEl = document.getElementById('f_name');
+    if (nameEl && nameEl.value) {
+      nameBit = '_' + nameEl.value.trim().replace(/[\\/:*?"<>|#%&{}]/g, '').replace(/\s+/g, '-').slice(0, 40);
+    }
+  } catch(e){}
+  const stamp = new Date().toISOString().slice(0, 10);
+  const filename = 'ODC-ServiceAgreement' + nameBit + '_' + stamp + '.pdf';
+
+  // Target element to convert — the visible Service Agreement card(s)
+  const target = document.getElementById('docsContainer');
+
+  // Give the layout a tick to reflow with all the details opened
+  await new Promise(r => setTimeout(r, 200));
+
+  try {
+    await html2pdf().set({
+      margin: [10, 10, 10, 10], // mm: top, right, bottom, left
+      filename: filename,
+      image: { type: 'jpeg', quality: 0.95 },
+      html2canvas: {
+        scale: 2,                 // higher = sharper text; 2× is a good balance
+        useCORS: true,
+        logging: false,
+        windowWidth: target.scrollWidth
+      },
+      jsPDF: {
+        unit: 'mm',
+        format: 'a4',
+        orientation: 'portrait',
+        compress: true
+      },
+      pagebreak: { mode: ['css', 'legacy'], avoid: ['tr', '.no-page-break'] }
+    }).from(target).save();
+
+    toast.innerHTML = '✓ <strong>PDF downloaded:</strong> ' + filename;
+    toast.style.background = '#eef9ea';
+    toast.style.borderColor = '#4a7a3c';
+    toast.style.color = '#2f4a2a';
+    setTimeout(() => { try { toast.remove(); } catch(e){} }, 4000);
+  } catch(e) {
+    console.error('[PDF] generation failed:', e);
+    toast.innerHTML = '✗ <strong>PDF failed:</strong> ' + (e.message || e);
+    toast.style.background = '#fef3ef';
+    toast.style.borderColor = '#d99656';
+    toast.style.color = '#7a4a1a';
+    setTimeout(() => { try { toast.remove(); } catch(e){} }, 8000);
+  } finally {
+    // Restore UI state
+    hiddenCards.forEach(c => c.style.display = '');
+    openedDetails.forEach(d => d.removeAttribute('open'));
+  }
+};
 
 // printOne also opens collapsed details inside the chosen doc
 const _origPrintOne = window.printOne;
