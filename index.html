@@ -619,6 +619,22 @@
   body.pdf-rendering #panel3 { display: block !important; padding: 0 !important; }
   body.pdf-rendering .panel { padding: 0 !important; }
 
+  /* Inside the off-screen PDF wrapper: pin everything to the A4 page width
+     so html2canvas captures a rectangle that exactly matches the PDF page. */
+  body.pdf-rendering #__pdfWrapper * { box-sizing: border-box !important; }
+  body.pdf-rendering #__pdfWrapper .doc-card,
+  body.pdf-rendering #__pdfWrapper .doc-body,
+  body.pdf-rendering #__pdfWrapper .doc-info-box,
+  body.pdf-rendering #__pdfWrapper .doc-note {
+    width: 100% !important; max-width: 100% !important;
+    margin-left: 0 !important; margin-right: 0 !important;
+  }
+  body.pdf-rendering #__pdfWrapper .doc-body { padding: 8px 14px !important; }
+  body.pdf-rendering #__pdfWrapper {
+    font-size: 10.5pt;
+    line-height: 1.45;
+  }
+
   /* Each top-level document starts on a new page */
   body.pdf-rendering .doc-card {
     box-shadow: none !important;
@@ -1672,29 +1688,19 @@ function printSelected(){
 // PDF DOWNLOAD — generate a real .pdf file using html2pdf.js
 // (bundles html2canvas + jsPDF; loaded from cdnjs in <head>)
 // ═══════════════════════════════════════════════════════════════════
-// Internal helper used by both download + email. Returns { blob, filename, clientName }
-// (returns blob when wantBlob is true; otherwise auto-saves via html2pdf .save()).
+// Internal helper used by both download + email. Returns { blob, filename, clientName }.
+// Implementation: clone #docsContainer into an OFF-SCREEN wrapper that's exactly
+// A4 width (794px @ 96 DPI). This isolates PDF rendering from the screen layout
+// and prevents the "content shifted off-page" / "left side cut off" bug.
 async function _generateServiceAgreementPdf(wantBlob){
   if (typeof html2pdf === 'undefined') {
     throw new Error('PDF library failed to load. Please refresh and try again.');
   }
 
-  // Make sure the Service Agreement card is selected (only one exists now)
+  // Make sure the Service Agreement card is selected
   document.querySelectorAll('.docpick').forEach(c => { c.checked = true; });
 
-  // Force-open every <details> so the PDF includes the full content
-  const openedDetails = [];
-  document.querySelectorAll('#docsContainer details:not([open])').forEach(d => {
-    d.setAttribute('open',''); openedDetails.push(d);
-  });
-
-  // Add a body class so the PDF-only CSS rules activate
-  document.body.classList.add('pdf-rendering');
-
-  // Give layout a tick to reflow with details opened + class applied
-  await new Promise(r => setTimeout(r, 250));
-
-  // Build filename: ODC-ServiceAgreement_{ClientName}_{date}.pdf
+  // Build filename
   let clientName = '';
   let nameBit = '';
   try {
@@ -1707,33 +1713,94 @@ async function _generateServiceAgreementPdf(wantBlob){
   const stamp = new Date().toISOString().slice(0, 10);
   const filename = 'ODC-ServiceAgreement' + nameBit + '_' + stamp + '.pdf';
 
-  const target = document.getElementById('docsContainer');
+  // A4 portrait at 96 DPI = 794 × 1123 px. We'll use 780px after small margin.
+  const PDF_PAGE_WIDTH_PX = 780;
+
+  // 1) Force-open all <details> in the ORIGINAL DOM so the clone inherits the open state
+  const openedDetails = [];
+  document.querySelectorAll('#docsContainer details:not([open])').forEach(d => {
+    d.setAttribute('open',''); openedDetails.push(d);
+  });
+
+  // 2) Create the off-screen wrapper at fixed A4 width
+  const wrapper = document.createElement('div');
+  wrapper.id = '__pdfWrapper';
+  wrapper.style.cssText = [
+    'position: fixed',
+    'left: -20000px',
+    'top: 0',
+    'width: ' + PDF_PAGE_WIDTH_PX + 'px',
+    'max-width: ' + PDF_PAGE_WIDTH_PX + 'px',
+    'background: #ffffff',
+    'margin: 0',
+    'padding: 0',
+    'z-index: -9999',
+    'box-sizing: border-box'
+  ].join(';');
+
+  // 3) Clone the docs container DEEP
+  const orig = document.getElementById('docsContainer');
+  const clone = orig.cloneNode(true);
+  clone.style.width = PDF_PAGE_WIDTH_PX + 'px';
+  clone.style.maxWidth = PDF_PAGE_WIDTH_PX + 'px';
+  clone.style.margin = '0';
+  clone.style.padding = '0';
+
+  // 4) cloneNode doesn't copy live input values — copy them manually
+  const origInputs = orig.querySelectorAll('input, textarea, select');
+  const cloneInputs = clone.querySelectorAll('input, textarea, select');
+  origInputs.forEach((el, i) => {
+    const c = cloneInputs[i];
+    if (!c) return;
+    if (el.type === 'checkbox' || el.type === 'radio') {
+      c.checked = el.checked;
+      if (el.checked) c.setAttribute('checked', 'checked');
+      else c.removeAttribute('checked');
+    } else if (el.tagName === 'SELECT') {
+      c.value = el.value;
+      Array.from(c.options).forEach(opt => {
+        if (opt.value === el.value) opt.setAttribute('selected', 'selected');
+        else opt.removeAttribute('selected');
+      });
+    } else {
+      c.value = el.value;
+      // Setting the attribute helps html2canvas render the displayed text
+      try { c.setAttribute('value', el.value); } catch(e){}
+    }
+  });
+
+  // 5) Mount, apply pdf-rendering class so all CSS rules activate
+  wrapper.appendChild(clone);
+  document.body.appendChild(wrapper);
+  document.body.classList.add('pdf-rendering');
+
+  // 6) Wait for layout to settle
+  await new Promise(r => setTimeout(r, 350));
 
   const opts = {
-    margin: [12, 10, 14, 10], // mm: top, right, bottom, left
+    margin: [10, 8, 12, 8], // mm: top, right, bottom, left
     filename: filename,
-    image: { type: 'jpeg', quality: 0.96 },
+    image: { type: 'jpeg', quality: 0.95 },
     html2canvas: {
       scale: 2,
       useCORS: true,
       letterRendering: true,
       logging: false,
       backgroundColor: '#ffffff',
-      windowWidth: 1100   // render at a comfortable desktop width for clean text
+      width: PDF_PAGE_WIDTH_PX,
+      windowWidth: PDF_PAGE_WIDTH_PX
     },
     jsPDF: {
       unit: 'mm',
       format: 'a4',
       orientation: 'portrait',
-      compress: true,
-      hotfixes: ['px_scaling']
+      compress: true
     },
     pagebreak: {
       mode: ['css', 'legacy'],
-      before: '.doc-card',              // each top-level doc starts on a new page
       avoid: [
-        'tr',                           // never split a table row
-        '.doc-section-h',               // keep section headers with content
+        'tr',
+        '.doc-section-h',
         '.doc-info-box',
         '.doc-note',
         '.doc-card-title',
@@ -1745,16 +1812,17 @@ async function _generateServiceAgreementPdf(wantBlob){
 
   try {
     if (wantBlob) {
-      const blob = await html2pdf().set(opts).from(target).output('blob');
+      const blob = await html2pdf().set(opts).from(clone).output('blob');
       return { blob, filename, clientName };
     } else {
-      await html2pdf().set(opts).from(target).save();
+      await html2pdf().set(opts).from(clone).save();
       return { blob: null, filename, clientName };
     }
   } finally {
-    // Restore UI state
+    // Cleanup
     openedDetails.forEach(d => d.removeAttribute('open'));
     document.body.classList.remove('pdf-rendering');
+    try { document.body.removeChild(wrapper); } catch(e){}
   }
 }
 
@@ -2182,7 +2250,80 @@ function applyAll() {
 }
 
 // ── Render documents ───────────────────────────────
+// ════════════════════════════════════════════════════════════════
+// DOC INPUT CACHE — preserves any user-typed values inside Step 3
+// document fields (Supporter name, Funding tier, Contribution Rate,
+// etc.) across re-renders, panel switches, and SharePoint reloads.
+// Keys are stable signatures (name + position) so order shifts don't
+// scramble them.
+// ════════════════════════════════════════════════════════════════
+window.docInputCache = window.docInputCache || {};
+
+function _docCacheKeyFor(el, index){
+  const id   = el.id || '';
+  const name = el.name || '';
+  const ph   = el.placeholder || '';
+  const dataShared = el.getAttribute('data-shared') || '';
+  // Use the most stable identifier available; fall back to index
+  if (id)   return 'id:' + id;
+  if (dataShared) return 'shared:' + dataShared;
+  if (name) return 'name:' + name + '|' + index;
+  if (ph)   return 'ph:' + ph + '|' + index;
+  return 'idx:' + index;
+}
+
+function _snapshotDocInputs(){
+  // Capture current values BEFORE re-render, into docInputCache
+  document.querySelectorAll('#docsContainer input, #docsContainer select, #docsContainer textarea').forEach((el, i) => {
+    if (el.classList.contains('ff-inline')) return;     // already handled by ffCache
+    if (el.classList.contains('docpick'))   return;
+    if (el.classList.contains('extpick'))   return;
+    if (el.type === 'button' || el.type === 'submit' || el.type === 'file') return;
+    const key = _docCacheKeyFor(el, i);
+    const val = (el.type === 'checkbox' || el.type === 'radio') ? !!el.checked : (el.value || '');
+    if (val !== '' && val !== false) {
+      window.docInputCache[key] = val;
+    } else if (key in window.docInputCache && val === '') {
+      // Don't overwrite cached value with empty unless the user explicitly cleared it
+      // (we can't distinguish here; preserving the cache is safer)
+    } else {
+      window.docInputCache[key] = val;
+    }
+  });
+}
+
+function _restoreDocInputs(){
+  // After re-render, push cached values back into the freshly created inputs
+  document.querySelectorAll('#docsContainer input, #docsContainer select, #docsContainer textarea').forEach((el, i) => {
+    if (el.classList.contains('ff-inline')) return;
+    if (el.classList.contains('docpick'))   return;
+    if (el.classList.contains('extpick'))   return;
+    if (el.type === 'button' || el.type === 'submit' || el.type === 'file') return;
+    const key = _docCacheKeyFor(el, i);
+    if (key in window.docInputCache) {
+      const v = window.docInputCache[key];
+      if (el.type === 'checkbox' || el.type === 'radio') {
+        el.checked = !!v;
+      } else {
+        el.value = v;
+      }
+    }
+    // Wire a one-time listener that updates the cache on any change
+    if (!el.__cacheWired) {
+      el.__cacheWired = true;
+      const upd = () => {
+        const k = _docCacheKeyFor(el, i);
+        window.docInputCache[k] = (el.type === 'checkbox' || el.type === 'radio') ? !!el.checked : (el.value || '');
+      };
+      el.addEventListener('input', upd);
+      el.addEventListener('change', upd);
+    }
+  });
+}
+
 function renderDocs() {
+  // Snapshot any user-entered values that already exist before we rebuild
+  _snapshotDocInputs();
   ffIdx = 0;  // reset counter so ff() keys are stable across re-renders
   // Update sig status badge
   if (clientSigUrl || staffSigUrl) {
@@ -2259,6 +2400,53 @@ function renderDocs() {
         }
       });
     });
+
+  // Restore any cached user-typed values into the freshly built inputs,
+  // and wire change listeners so future typing updates the cache.
+  _restoreDocInputs();
+
+  // Auto-fill Agreement Review Date as 1 year from Document Date (if empty)
+  _autoFillReviewDate();
+}
+
+// Find any "Review Date" input in the freshly rendered docs and pre-fill
+// it with (Document Date + 1 year). User can still edit it afterwards;
+// once they've touched it, the cache will hold their custom value.
+function _autoFillReviewDate(){
+  try {
+    const docDateStr = (document.getElementById('f_docDate') || {}).value;
+    if (!docDateStr) return;
+    const d = new Date(docDateStr);
+    if (isNaN(d.getTime())) return;
+    d.setFullYear(d.getFullYear() + 1);
+    // Format as dd/mm/yyyy to match the rest of the form
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    const formatted = dd + '/' + mm + '/' + yyyy;
+
+    // Find Review Date input(s) by looking for an input near "Review Date" label text
+    document.querySelectorAll('#docsContainer input').forEach(inp => {
+      const key = _docCacheKeyFor(inp, 0);
+      // Don't overwrite if user already typed a custom value
+      if (key in window.docInputCache && window.docInputCache[key]) return;
+      // Identify Review Date inputs by placeholder, name, id, or nearby label text
+      const ph = (inp.placeholder || '').toLowerCase();
+      const id = (inp.id || '').toLowerCase();
+      const nm = (inp.name || '').toLowerCase();
+      const labelText = inp.parentElement ? inp.parentElement.textContent.toLowerCase() : '';
+      if (
+        ph.includes('review date') || id.includes('review') || nm.includes('review') ||
+        (labelText.includes('agreement review date') || labelText.includes('review date'))
+      ) {
+        if (!inp.value) {
+          inp.value = formatted;
+          // Mirror into the cache so the autofill survives later re-renders
+          window.docInputCache[key] = formatted;
+        }
+      }
+    });
+  } catch(e){ console.warn('[review-date] autofill failed:', e); }
 }
 
 // ════════════════════════════════════════════════
@@ -5082,9 +5270,16 @@ function _collectSigState(){
     aStaff:  Array.from(appliedStaffIds),
   };
 }
-// Build the full snapshot (used by both autosave & shareable URL)
+// Build the full snapshot (used by both autosave & shareable URL).
+// Also snapshots any Step-3 doc inputs into docInputCache and returns it,
+// so values typed into the contract preview survive save/load cycles.
 function _collectFull(){
-  return { v: _collectAllValues(), sig: _collectSigState() };
+  try { _snapshotDocInputs(); } catch(e){}
+  return {
+    v: _collectAllValues(),
+    sig: _collectSigState(),
+    doc: window.docInputCache || {}
+  };
 }
 function _restoreAllValues(arr){
   const inputs = Array.from(document.querySelectorAll('input, select, textarea')).filter(el => {
@@ -5101,6 +5296,17 @@ function _restoreAllValues(arr){
     else el.value = arr[i] == null ? '' : String(arr[i]);
     try { el.dispatchEvent(new Event('input', {bubbles:true})); } catch(e){}
     try { el.dispatchEvent(new Event('change', {bubbles:true})); } catch(e){}
+  }
+}
+
+// Restore the doc-input cache (Step 3 typed values). Call AFTER renderDocs
+// to apply, or just set window.docInputCache so next renderDocs picks it up.
+function _restoreDocInputCache(cache){
+  if (!cache || typeof cache !== 'object') return;
+  window.docInputCache = Object.assign({}, cache);
+  // If panel3 is already rendered, push values into the visible inputs now
+  if (document.getElementById('panel3') && document.getElementById('panel3').classList.contains('active')) {
+    try { _restoreDocInputs(); } catch(e){}
   }
 }
 // Restore signature state, then re-apply each slot so the doc shows them.
@@ -5190,7 +5396,7 @@ function autoSaveDebounced(){
   _saveTimer = setTimeout(() => {
     try {
       const full = _collectFull();
-      const data = { values: full.v, sig: full.sig, savedAt: new Date().toISOString() };
+      const data = { values: full.v, sig: full.sig, doc: full.doc || {}, savedAt: new Date().toISOString() };
       localStorage.setItem(SAVE_KEY, JSON.stringify(data));
     } catch(e){}
   }, 700);
@@ -5214,7 +5420,7 @@ function _showRestoreToast(msg, isWarn){
 }
 
 function loadSavedData(){
-  let arr = null, sig = null, source = '', isLegacy = false;
+  let arr = null, sig = null, source = '', isLegacy = false, docCache = null;
   const h = location.hash;
   // ── New compressed format: #z=<lz-string-encoded> ──
   if (h && h.indexOf('#z=') === 0 && typeof LZString !== 'undefined') {
@@ -5232,7 +5438,7 @@ function loadSavedData(){
       const json = decodeURIComponent(escape(atob(h.slice(3))));
       const parsed = JSON.parse(json);
       if (Array.isArray(parsed)) { arr = parsed; source = 'shareable link (legacy)'; isLegacy = true; }
-      else if (parsed && Array.isArray(parsed.v)) { arr = parsed.v; sig = parsed.sig || null; source = 'shareable link'; }
+      else if (parsed && Array.isArray(parsed.v)) { arr = parsed.v; sig = parsed.sig || null; docCache = parsed.doc || null; source = 'shareable link'; }
     } catch(e){ console.warn('Hash restore failed:', e); }
   }
   if (!arr) {
@@ -5240,7 +5446,7 @@ function loadSavedData(){
       const raw = localStorage.getItem(SAVE_KEY);
       if (raw) {
         const data = JSON.parse(raw);
-        if (data && Array.isArray(data.values)) { arr = data.values; sig = data.sig || null; source = 'this browser'; }
+        if (data && Array.isArray(data.values)) { arr = data.values; sig = data.sig || null; docCache = data.doc || null; source = 'this browser'; }
       }
     } catch(e){}
   }
@@ -5248,6 +5454,7 @@ function loadSavedData(){
   setTimeout(() => {
     _restoreAllValues(arr);
     if (sig) _restoreSigState(sig);
+    if (docCache) _restoreDocInputCache(docCache);
     const sigCount = sig ? ((sig.client?1:0)+(sig.rep?1:0)+(sig.staff?1:0)) : 0;
     const slotCount = sig ? (sig.aClient.length + sig.aRep.length + sig.aStaff.length) : 0;
     console.log('Restored from:', source, '·', arr.length, 'fields ·', sigCount, 'signatures ·', slotCount, 'applied slots');
@@ -5261,7 +5468,7 @@ function loadSavedData(){
       _showRestoreToast(`✓ Restored from ${source.replace(' (legacy)','')} — <strong>${arr.length}</strong> fields${sigBit}.`, false);
     }
     if (source.indexOf('shareable link') === 0) {
-      try { localStorage.setItem(SAVE_KEY, JSON.stringify({ values: arr, sig: sig, savedAt: new Date().toISOString() })); } catch(e){}
+      try { localStorage.setItem(SAVE_KEY, JSON.stringify({ values: arr, sig: sig, doc: docCache || {}, savedAt: new Date().toISOString() })); } catch(e){}
     }
   }, 500);
 }
@@ -5312,9 +5519,10 @@ window.closeSaveModal = function(){
 window.manualSave = function(){
   try {
     const full = _collectFull();
-    const data = { values: full.v, sig: full.sig, savedAt: new Date().toISOString() };
+    const data = { values: full.v, sig: full.sig, doc: full.doc || {}, savedAt: new Date().toISOString() };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
-    document.getElementById('lastSavedAt').textContent = 'Last saved: ' + new Date(data.savedAt).toLocaleString();
+    const lastSaved = document.getElementById('lastSavedAt');
+    if (lastSaved) lastSaved.textContent = 'Last saved: ' + new Date(data.savedAt).toLocaleString();
   } catch(e){ alert('Save failed: ' + e.message); }
 };
 window.clearLocalSave = function(){
@@ -5428,7 +5636,8 @@ window.downloadJsonFile = function(){
       version: 2,
       savedAt: new Date().toISOString(),
       values: full.v,
-      sig: full.sig
+      sig: full.sig,
+      doc: full.doc || {}
     };
     const json = JSON.stringify(payload, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
@@ -5473,11 +5682,11 @@ window.loadJsonFile = function(evt){
     try {
       const parsed = JSON.parse(e.target.result);
       // Accept both the new wrapped format and a raw {v, sig} payload
-      let arr = null, sig = null;
+      let arr = null, sig = null, docCache = null;
       if (parsed && Array.isArray(parsed.values)) {
-        arr = parsed.values; sig = parsed.sig || null;
+        arr = parsed.values; sig = parsed.sig || null; docCache = parsed.doc || null;
       } else if (parsed && Array.isArray(parsed.v)) {
-        arr = parsed.v; sig = parsed.sig || null;
+        arr = parsed.v; sig = parsed.sig || null; docCache = parsed.doc || null;
       } else if (Array.isArray(parsed)) {
         arr = parsed; // legacy: just an array of values
       }
@@ -5487,10 +5696,11 @@ window.loadJsonFile = function(evt){
       }
       _restoreAllValues(arr);
       if (sig) _restoreSigState(sig);
+      if (docCache) _restoreDocInputCache(docCache);
       // Persist to localStorage so refreshes keep the loaded data
       try {
         localStorage.setItem(SAVE_KEY, JSON.stringify({
-          values: arr, sig: sig, savedAt: new Date().toISOString()
+          values: arr, sig: sig, doc: docCache || {}, savedAt: new Date().toISOString()
         }));
       } catch(e){}
       const sigCount = sig ? ((sig.client?1:0)+(sig.rep?1:0)+(sig.staff?1:0)) : 0;
@@ -5730,7 +5940,8 @@ window.saveToSharePoint = async function(){
       savedAt: new Date().toISOString(),
       savedBy: savedBy,
       values: full.v,
-      sig: full.sig
+      sig: full.sig,
+      doc: full.doc || {}
     };
     const json = JSON.stringify(payload, null, 2);
 
@@ -5906,17 +6117,18 @@ window.pickerOpenFile = async function(itemId, name){
     const data = await fileRes.json();
     console.log('[Picker] Loaded file:', name, '— size:', (meta && meta.size) || 'unknown', 'bytes — has sig:',
       !!(data && (data.sig || (data.values && data.sig))));
-    let arr = null, sig = null;
-    if (data && Array.isArray(data.values)) { arr = data.values; sig = data.sig || null; }
-    else if (data && Array.isArray(data.v)) { arr = data.v; sig = data.sig || null; }
+    let arr = null, sig = null, docCache = null;
+    if (data && Array.isArray(data.values)) { arr = data.values; sig = data.sig || null; docCache = data.doc || null; }
+    else if (data && Array.isArray(data.v)) { arr = data.v; sig = data.sig || null; docCache = data.doc || null; }
     else if (Array.isArray(data)) { arr = data; }
     if (!arr) { pickerSetStatus('Invalid file format.', 'error'); return; }
     // First wipe any existing form data so we get a clean slate
     pickerWipeFormState();
     _restoreAllValues(arr);
     if (sig) _restoreSigState(sig);
+    if (docCache) _restoreDocInputCache(docCache);
     try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify({ values: arr, sig: sig, savedAt: new Date().toISOString() }));
+      localStorage.setItem(SAVE_KEY, JSON.stringify({ values: arr, sig: sig, doc: docCache || {}, savedAt: new Date().toISOString() }));
     } catch(e){}
     window.__currentPickerFile = { itemId, name };
     window.pickerClose();
@@ -5949,6 +6161,9 @@ function pickerWipeFormState(){
   try {
     // Clear localStorage save
     try { localStorage.removeItem(SAVE_KEY); } catch(e){}
+    // Clear in-memory doc-input cache so the new form starts blank
+    window.docInputCache = {};
+    if (typeof ffCache !== 'undefined') ffCache = {};
     // Clear shared/sig localStorage entries (matches existing autoReset logic)
     Object.keys(localStorage).forEach(function(k){
       if (k.startsWith('odc_shared_') || k.startsWith('odc_sig_')) {
