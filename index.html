@@ -1084,6 +1084,7 @@
 
     <div class="picker-actions">
       <button class="btn-new" onclick="pickerStartNew()">+ Start New Form</button>
+      <button class="btn-refresh" onclick="openManual()" title="Open the team manual (stored in SharePoint)">📖 Manual</button>
       <button class="btn-refresh" onclick="pickerRefresh()">🔄 Refresh</button>
     </div>
 
@@ -6226,6 +6227,54 @@ function pickerWipeFormState(){
   } catch(e) { console.warn('[Picker] wipe failed:', e); }
   window.__currentPickerFile = null;
 }
+
+// Open the team manual from SharePoint. Manual file should live at:
+//   /Service Agreement Records/ODC_Service_Agreement_Form_Manual.docx
+// (Hayley uploads it once via SharePoint web UI.) The app fetches a
+// pre-signed download URL via Graph and opens it in a new tab.
+window.openManual = async function(){
+  const MANUAL_FILENAME = 'ODC_Service_Agreement_Form_Manual.docx';
+  const toast = _showToast('📖 Opening manual…', 'info');
+  try {
+    if (!_msal || !_spCurrentAccount()) {
+      toast.remove();
+      _showToast('Please sign in first.', 'error');
+      return;
+    }
+    const driveId = await _spGetDriveId();
+    const manualPath = SP_CONFIG.spFolderPath + '/' + MANUAL_FILENAME;
+    const metaUrl = 'https://graph.microsoft.com/v1.0/drives/' + driveId
+      + '/root:/' + _spEncodePath(manualPath);
+    let res;
+    try { res = await _graph(metaUrl); }
+    catch(e) {
+      toast.remove();
+      if (/Graph 404/.test(e.message)) {
+        _showToast(
+          '📖 <strong>Manual not yet available.</strong><br>' +
+          '<small>Ask Hayley to upload <strong>' + MANUAL_FILENAME + '</strong> to SharePoint &rarr; Service Agreement Records folder.</small>',
+          'error'
+        );
+        return;
+      }
+      throw e;
+    }
+    const meta = await res.json();
+    const downloadUrl = meta['@microsoft.graph.downloadUrl'];
+    if (!downloadUrl) {
+      toast.remove();
+      _showToast('Could not get download URL for manual.', 'error');
+      return;
+    }
+    // Open in new tab — browser downloads .docx or opens it inline if Office Online viewer is set up
+    window.open(downloadUrl, '_blank');
+    toast.remove();
+  } catch(e) {
+    console.error('[Manual] open failed:', e);
+    toast.remove();
+    _showToast('Failed to open manual: ' + (e.message || e), 'error');
+  }
+};
 
 window.pickerStartNew = function(){
   pickerWipeFormState();
