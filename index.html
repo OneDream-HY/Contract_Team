@@ -8,7 +8,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/signature_pad/4.1.7/signature_pad.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
-<!-- html2pdf.js for automatic PDF download (bundles html2canvas + jsPDF) -->
+<!-- jsPDF + html2canvas for PDF generation. jsPDF.html() autoPaging handles
+     long documents (38+ pages) without hitting browser canvas size limits. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<!-- html2pdf.bundle for the older code paths if needed (also bundles its own copies) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <!-- Microsoft Authentication Library (MSAL) — load with multi-CDN fallback.
      Some networks block specific CDNs; we try cdnjs first, then jsdelivr. -->
@@ -619,20 +623,36 @@
   body.pdf-rendering #panel3 { display: block !important; padding: 0 !important; }
   body.pdf-rendering .panel { padding: 0 !important; }
 
-  /* Inside the off-screen PDF wrapper: pin everything to the A4 page width
-     so html2canvas captures a rectangle that exactly matches the PDF page. */
-  body.pdf-rendering #__pdfWrapper * { box-sizing: border-box !important; }
-  body.pdf-rendering #__pdfWrapper .doc-card,
-  body.pdf-rendering #__pdfWrapper .doc-body,
-  body.pdf-rendering #__pdfWrapper .doc-info-box,
-  body.pdf-rendering #__pdfWrapper .doc-note {
+  /* Pin #docsContainer to A4 page width during PDF rendering so html2canvas
+     captures a rectangle that exactly matches the PDF page. */
+  body.pdf-rendering #docsContainer {
+    width: 780px !important;
+    max-width: 780px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    position: relative !important;
+    left: 0 !important;
+  }
+  body.pdf-rendering #docsContainer * { box-sizing: border-box !important; }
+  body.pdf-rendering #docsContainer .doc-card,
+  body.pdf-rendering #docsContainer .doc-body,
+  body.pdf-rendering #docsContainer .doc-info-box,
+  body.pdf-rendering #docsContainer .doc-note {
     width: 100% !important; max-width: 100% !important;
     margin-left: 0 !important; margin-right: 0 !important;
   }
-  body.pdf-rendering #__pdfWrapper .doc-body { padding: 8px 14px !important; }
-  body.pdf-rendering #__pdfWrapper {
+  body.pdf-rendering #docsContainer .doc-body { padding: 8px 14px !important; }
+  body.pdf-rendering #docsContainer {
     font-size: 10.5pt;
     line-height: 1.45;
+  }
+  /* Also kill any flex/grid container that would push docs to the right */
+  body.pdf-rendering #panel3 {
+    width: 780px !important;
+    max-width: 780px !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   /* Each top-level document starts on a new page */
@@ -1414,9 +1434,8 @@
     </div>
     <div class="d-flex gap-2 flex-wrap">
       <button class="btn btn-odc btn-sm" onclick="applyAll()">✍️ Apply Signature to ALL Fields</button>
-      <button class="btn btn-sm" style="background:#1a5fa0; color:#fff; border:none; font-weight:600; padding:7px 14px; border-radius:6px;" onclick="downloadAsPdf()">📥 Download PDF</button>
       <button class="btn btn-sm" style="background:#5b3a8e; color:#fff; border:none; font-weight:600; padding:7px 14px; border-radius:6px;" onclick="emailPdf()">📧 Email PDF</button>
-      <button class="btn btn-odc btn-sm" onclick="openPrintModal()">🖨️ Print</button>
+      <button class="btn btn-odc btn-sm" onclick="openPrintModal()" title="Print directly, or choose 'Save as PDF' in the print dialog to download a PDF">🖨️ Print / Save as PDF</button>
       <button class="btn btn-sm" onclick="clearAllAndReload(true)" title="Wipe all data and start fresh for a new participant" style="background:#fff; color:#a64b1a; border:1.5px solid #d99656; font-weight:600;">🗑 Clear All</button>
     </div>
   </div>
@@ -1432,7 +1451,7 @@
         <h3 id="printModalTitle">🖨️ Print Documents</h3>
         <button class="print-modal-close" onclick="closePrintModal()" aria-label="Close">&times;</button>
       </div>
-      <p class="print-modal-sub">Check which documents to include in the printout, then click <strong>Print Selected</strong>.</p>
+      <p class="print-modal-sub">Click <strong>Print / Save as PDF</strong> to open the browser print dialog. In the dialog, pick <strong>"Save as PDF"</strong> as the destination if you want a PDF file, or send to a physical printer to print.</p>
       <div class="print-modal-list">
         <label class="print-modal-row">
           <input type="checkbox" class="docpick" data-target="doc-5" checked>
@@ -1447,8 +1466,7 @@
       </div>
       <div class="print-modal-actions">
         <button class="btn btn-odc-outline btn-sm" onclick="closePrintModal()">Cancel</button>
-        <button class="btn btn-sm" style="background:#1a5fa0; color:#fff; border:none; font-weight:600; padding:8px 16px; border-radius:4px;" onclick="closePrintModal();downloadAsPdf();">📥 Download PDF</button>
-        <button class="btn btn-odc btn-sm" onclick="closePrintModal();printSelected();">🖨️ Print Selected</button>
+        <button class="btn btn-odc btn-sm" onclick="closePrintModal();printSelected();">🖨️ Print / Save as PDF</button>
       </div>
     </div>
   </div>
@@ -1634,6 +1652,11 @@ function _restorePrintSelection(){
   _printHiddenCards = [];
   _printOpenedDetails.forEach(d => d.removeAttribute('open'));
   _printOpenedDetails = [];
+  // Restore document title if we changed it for the print dialog filename
+  if (window.__prevDocTitle != null) {
+    try { document.title = window.__prevDocTitle; } catch(e){}
+    window.__prevDocTitle = null;
+  }
 }
 window.addEventListener('afterprint', _restorePrintSelection);
 // Also expand details when user uses Print All Documents (Ctrl+P)
@@ -1675,6 +1698,19 @@ function printSelected(){
     d.setAttribute('open','');
     _printOpenedDetails.push(d);
   });
+  // Suggest a sensible filename to the browser's print dialog (used when
+  // the user picks "Save as PDF" — browsers default the filename to
+  // document.title). We restore the original title in _restorePrintSelection.
+  try {
+    let clientName = '';
+    const nameEl = document.getElementById('f_name');
+    if (nameEl && nameEl.value) clientName = nameEl.value.trim();
+    const nameBit = clientName ? '_' + clientName.replace(/[\\/:*?"<>|#%&{}]/g, '').replace(/\s+/g, '-').slice(0, 40) : '';
+    const stamp = new Date().toISOString().slice(0, 10);
+    window.__prevDocTitle = document.title;
+    document.title = 'ODC-ServiceAgreement' + nameBit + '_' + stamp;
+  } catch(e){}
+
   // Use a timeout so layout reflows before print dialog opens
   setTimeout(() => {
     try { window.print(); }
@@ -1694,8 +1730,12 @@ function printSelected(){
 // LIVE original element. No cloning — that was causing input values and layout
 // to get lost during off-screen rendering.
 async function _generateServiceAgreementPdf(wantBlob){
-  if (typeof html2pdf === 'undefined') {
-    throw new Error('PDF library failed to load. Please refresh and try again.');
+  // Find jsPDF — UMD build exposes window.jspdf.jsPDF, older builds use window.jsPDF
+  const jsPDFClassEarly = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF
+                       : (typeof window.jsPDF !== 'undefined') ? window.jsPDF
+                       : null;
+  if (!jsPDFClassEarly) {
+    throw new Error('PDF library (jsPDF) failed to load. Please refresh and try again.');
   }
 
   // Build filename
@@ -1750,43 +1790,51 @@ async function _generateServiceAgreementPdf(wantBlob){
 
   const target = document.getElementById('docsContainer');
 
-  const opts = {
-    margin: [10, 8, 12, 8], // mm: top, right, bottom, left
-    filename: filename,
-    image: { type: 'jpeg', quality: 0.95 },
-    html2canvas: {
-      scale: 1.6,
-      useCORS: true,
-      letterRendering: true,
-      logging: false,
-      backgroundColor: '#ffffff'
-    },
-    jsPDF: {
-      unit: 'mm',
-      format: 'a4',
-      orientation: 'portrait',
-      compress: true
-    },
-    pagebreak: {
-      mode: ['css', 'legacy'],
-      avoid: [
-        'tr',
-        '.doc-section-h',
-        '.doc-info-box',
-        '.doc-note',
-        '.doc-card-title',
-        '.sig-row',
-        '.acknowledgement'
-      ]
-    }
-  };
+  // Use jsPDF.html() with autoPaging:'slice'. 'text' mode caused overlapping
+  // text in nested layouts; 'slice' captures a single tall canvas then slices
+  // it into PDF pages at fixed boundaries — cleaner output for our doc style.
+  const pdf = new jsPDFClassEarly({
+    unit: 'pt',
+    format: 'a4',
+    orientation: 'portrait',
+    compress: true
+  });
+  // A4 page in points: 595 × 842. Comfortable margins:
+  const MARGIN_X = 24, MARGIN_TOP = 28, MARGIN_BOTTOM = 36;
+  const usableWidthPt = 595 - 2 * MARGIN_X;     // 547pt
+  const htmlScale = usableWidthPt / 780;        // 780 CSS px → 547 pt
+  console.log('[PDF] jsPDF.html autoPaging:slice — scale:', htmlScale.toFixed(4),
+              '· target scrollHeight:', target.scrollHeight);
 
   try {
+    await new Promise((resolve, reject) => {
+      pdf.html(target, {
+        callback: () => resolve(),
+        margin: [MARGIN_TOP, MARGIN_X, MARGIN_BOTTOM, MARGIN_X],
+        autoPaging: 'slice',
+        x: 0,
+        y: 0,
+        width: usableWidthPt,
+        windowWidth: 780,
+        html2canvas: {
+          scale: htmlScale,
+          useCORS: true,
+          letterRendering: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+          // Force html2canvas to use 780px-wide layout regardless of viewport
+          windowWidth: 780,
+          width: 780,
+          height: target.scrollHeight
+        }
+      });
+    });
+
     if (wantBlob) {
-      const blob = await html2pdf().set(opts).from(target).output('blob');
+      const blob = pdf.output('blob');
       return { blob, filename, clientName };
     } else {
-      await html2pdf().set(opts).from(target).save();
+      pdf.save(filename);
       return { blob: null, filename, clientName };
     }
   } finally {
@@ -1815,18 +1863,10 @@ function _showToast(html, kind){
   return t;
 }
 
-window.downloadAsPdf = async function(){
-  const toast = _showToast('📥 <strong>Generating PDF…</strong><br><small>This may take 10–30 seconds for the full Service Agreement.</small>', 'info');
-  try {
-    const { filename } = await _generateServiceAgreementPdf(false);
-    toast.remove();
-    _showToast('✓ <strong>PDF downloaded:</strong> ' + filename, 'success');
-    setTimeout(() => { try { toast.remove(); } catch(e){} }, 5000);
-  } catch(e) {
-    console.error('[PDF] generation failed:', e);
-    toast.remove();
-    _showToast('✗ <strong>PDF failed:</strong> ' + (e.message || e), 'error');
-  }
+// downloadAsPdf — kept as a no-op alias so any legacy onclick handlers still work.
+// In production users should click "🖨️ Print / Save as PDF" instead.
+window.downloadAsPdf = function(){
+  if (typeof openPrintModal === 'function') openPrintModal();
 };
 
 // Create (or ensure) the PDFs subfolder inside Service Agreement Records/
@@ -2800,13 +2840,13 @@ function doc5_Sydney(name, address, street, suburb, postcode, mobile, phone, ema
   return `
   <div class="doc-card" id="doc-5">
     <div class="doc-card-header no-print">
-      <span class="doc-card-title">&#128196; Document 4 &#8211; Support at Home Service Agreement (38 pages)</span>
+      <span class="doc-card-title">&#128196; Document 4 &#8211; Support at Home Service Agreement</span>
       <button class="btn btn-odc-outline btn-sm" onclick="printOne(&#39;doc-5&#39;)">&#128424; Print</button>
     </div>
     <div class="doc-body">
 
       <!-- COVER -->
-      ${docCover('Support at Home Service Agreement', 'Document 4 · V1.4 JAN 2026 · 38 pages', 'One Dream Community Care Service')}
+      ${docCover('Support at Home Service Agreement', 'Document 4 · V1.4 JAN 2026', 'One Dream Community Care Service')}
 
       <div style="font-size:.87rem;line-height:1.65;background:#f9fdf8;border:1px solid var(--odc-border);border-radius:6px;padding:12px 16px;margin-bottom:18px;">
         <p><strong>Entering into a service agreement</strong></p>
@@ -3557,13 +3597,13 @@ function doc5_Others(name, address, street, suburb, postcode, mobile, phone, ema
   return `
   <div class="doc-card" id="doc-5">
     <div class="doc-card-header no-print">
-      <span class="doc-card-title">&#128196; Document 4 &#8211; Support at Home Service Agreement (38 pages)</span>
+      <span class="doc-card-title">&#128196; Document 4 &#8211; Support at Home Service Agreement</span>
       <button class="btn btn-odc-outline btn-sm" onclick="printOne(&#39;doc-5&#39;)">&#128424; Print</button>
     </div>
     <div class="doc-body">
 
       <!-- COVER -->
-      ${docCover('Support at Home Service Agreement', 'Document 4 · V1.4 JAN 2026 · 38 pages', 'One Dream Community Care Service')}
+      ${docCover('Support at Home Service Agreement', 'Document 4 · V1.4 JAN 2026', 'One Dream Community Care Service')}
 
       <div style="font-size:.87rem;line-height:1.65;background:#f9fdf8;border:1px solid var(--odc-border);border-radius:6px;padding:12px 16px;margin-bottom:18px;">
         <p><strong>Entering into a service agreement</strong></p>
@@ -4314,13 +4354,13 @@ function doc5_SelfManaged(name, address, street, suburb, postcode, mobile, phone
   return `
   <div class="doc-card" id="doc-5">
     <div class="doc-card-header no-print">
-      <span class="doc-card-title">&#128196; Document 4 &#8211; Self-managed Support at Home Service Agreement (43 pages)</span>
+      <span class="doc-card-title">&#128196; Document 4 &#8211; Self-managed Support at Home Service Agreement</span>
       <button class="btn btn-odc-outline btn-sm" onclick="printOne(&#39;doc-5&#39;)">&#128424; Print</button>
     </div>
     <div class="doc-body">
 
       <!-- COVER -->
-      ${docCover('Self-managed Support at Home Service Agreement', 'Document 4 · V1.1 2025_SAH_Self Managed · 43 pages', 'One Dream Community Care Service')}
+      ${docCover('Self-managed Support at Home Service Agreement', 'Document 4 · V1.1 2025_SAH_Self Managed', 'One Dream Community Care Service')}
 
       <div style="font-size:.87rem;line-height:1.65;background:#f9fdf8;border:1px solid var(--odc-border);border-radius:6px;padding:12px 16px;margin-bottom:18px;">
         <p><strong>Entering into a service agreement</strong></p>
