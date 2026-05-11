@@ -1689,16 +1689,14 @@ function printSelected(){
 // (bundles html2canvas + jsPDF; loaded from cdnjs in <head>)
 // ═══════════════════════════════════════════════════════════════════
 // Internal helper used by both download + email. Returns { blob, filename, clientName }.
-// Implementation: clone #docsContainer into an OFF-SCREEN wrapper that's exactly
-// A4 width (794px @ 96 DPI). This isolates PDF rendering from the screen layout
-// and prevents the "content shifted off-page" / "left side cut off" bug.
+// Strategy: scroll to top, force-open all <details>, apply a "pdf-rendering" class
+// that constrains #docsContainer to A4 width, then let html2pdf capture the
+// LIVE original element. No cloning — that was causing input values and layout
+// to get lost during off-screen rendering.
 async function _generateServiceAgreementPdf(wantBlob){
   if (typeof html2pdf === 'undefined') {
     throw new Error('PDF library failed to load. Please refresh and try again.');
   }
-
-  // Make sure the Service Agreement card is selected
-  document.querySelectorAll('.docpick').forEach(c => { c.checked = true; });
 
   // Build filename
   let clientName = '';
@@ -1713,82 +1711,55 @@ async function _generateServiceAgreementPdf(wantBlob){
   const stamp = new Date().toISOString().slice(0, 10);
   const filename = 'ODC-ServiceAgreement' + nameBit + '_' + stamp + '.pdf';
 
-  // A4 portrait at 96 DPI = 794 × 1123 px. We'll use 780px after small margin.
-  const PDF_PAGE_WIDTH_PX = 780;
+  // 1) Make sure we're on Step 3 so #docsContainer is fully rendered
+  let switchedPanel = false;
+  const panel3 = document.getElementById('panel3');
+  if (panel3 && !panel3.classList.contains('active')) {
+    if (typeof goTo === 'function') { goTo(3); switchedPanel = true; }
+  }
 
-  // 1) Force-open all <details> in the ORIGINAL DOM so the clone inherits the open state
+  // 2) Force-open every <details> so the full content prints
   const openedDetails = [];
   document.querySelectorAll('#docsContainer details:not([open])').forEach(d => {
     d.setAttribute('open',''); openedDetails.push(d);
   });
 
-  // 2) Create the off-screen wrapper at fixed A4 width
-  const wrapper = document.createElement('div');
-  wrapper.id = '__pdfWrapper';
-  wrapper.style.cssText = [
-    'position: fixed',
-    'left: -20000px',
-    'top: 0',
-    'width: ' + PDF_PAGE_WIDTH_PX + 'px',
-    'max-width: ' + PDF_PAGE_WIDTH_PX + 'px',
-    'background: #ffffff',
-    'margin: 0',
-    'padding: 0',
-    'z-index: -9999',
-    'box-sizing: border-box'
-  ].join(';');
-
-  // 3) Clone the docs container DEEP
-  const orig = document.getElementById('docsContainer');
-  const clone = orig.cloneNode(true);
-  clone.style.width = PDF_PAGE_WIDTH_PX + 'px';
-  clone.style.maxWidth = PDF_PAGE_WIDTH_PX + 'px';
-  clone.style.margin = '0';
-  clone.style.padding = '0';
-
-  // 4) cloneNode doesn't copy live input values — copy them manually
-  const origInputs = orig.querySelectorAll('input, textarea, select');
-  const cloneInputs = clone.querySelectorAll('input, textarea, select');
-  origInputs.forEach((el, i) => {
-    const c = cloneInputs[i];
-    if (!c) return;
+  // 3) Inputs need their displayed text to be in the DOM for html2canvas.
+  //    Mirror each input/select/textarea value into a data attribute and
+  //    a fallback span so the rendered text is captured properly.
+  const inputs = document.querySelectorAll('#docsContainer input, #docsContainer textarea, #docsContainer select');
+  const inputBackups = [];
+  inputs.forEach(el => {
+    if (el.type === 'button' || el.type === 'submit' || el.type === 'file') return;
+    inputBackups.push({ el, prevValueAttr: el.getAttribute('value') });
     if (el.type === 'checkbox' || el.type === 'radio') {
-      c.checked = el.checked;
-      if (el.checked) c.setAttribute('checked', 'checked');
-      else c.removeAttribute('checked');
-    } else if (el.tagName === 'SELECT') {
-      c.value = el.value;
-      Array.from(c.options).forEach(opt => {
-        if (opt.value === el.value) opt.setAttribute('selected', 'selected');
-        else opt.removeAttribute('selected');
-      });
+      if (el.checked) el.setAttribute('checked', 'checked');
     } else {
-      c.value = el.value;
-      // Setting the attribute helps html2canvas render the displayed text
-      try { c.setAttribute('value', el.value); } catch(e){}
+      try { el.setAttribute('value', el.value || ''); } catch(e){}
     }
   });
 
-  // 5) Mount, apply pdf-rendering class so all CSS rules activate
-  wrapper.appendChild(clone);
-  document.body.appendChild(wrapper);
+  // 4) Apply PDF-rendering CSS class — body class triggers pdf-only styles
   document.body.classList.add('pdf-rendering');
+  // Scroll to top so html2canvas starts at the right place
+  const prevScrollY = window.scrollY;
+  window.scrollTo(0, 0);
 
-  // 6) Wait for layout to settle
-  await new Promise(r => setTimeout(r, 350));
+  // 5) Wait for layout to settle (style changes + scroll)
+  await new Promise(r => setTimeout(r, 400));
+
+  const target = document.getElementById('docsContainer');
 
   const opts = {
     margin: [10, 8, 12, 8], // mm: top, right, bottom, left
     filename: filename,
     image: { type: 'jpeg', quality: 0.95 },
     html2canvas: {
-      scale: 2,
+      scale: 1.6,
       useCORS: true,
       letterRendering: true,
       logging: false,
-      backgroundColor: '#ffffff',
-      width: PDF_PAGE_WIDTH_PX,
-      windowWidth: PDF_PAGE_WIDTH_PX
+      backgroundColor: '#ffffff'
     },
     jsPDF: {
       unit: 'mm',
@@ -1812,17 +1783,21 @@ async function _generateServiceAgreementPdf(wantBlob){
 
   try {
     if (wantBlob) {
-      const blob = await html2pdf().set(opts).from(clone).output('blob');
+      const blob = await html2pdf().set(opts).from(target).output('blob');
       return { blob, filename, clientName };
     } else {
-      await html2pdf().set(opts).from(clone).save();
+      await html2pdf().set(opts).from(target).save();
       return { blob: null, filename, clientName };
     }
   } finally {
     // Cleanup
     openedDetails.forEach(d => d.removeAttribute('open'));
+    inputBackups.forEach(({ el, prevValueAttr }) => {
+      if (prevValueAttr === null) el.removeAttribute('value');
+      else el.setAttribute('value', prevValueAttr);
+    });
     document.body.classList.remove('pdf-rendering');
-    try { document.body.removeChild(wrapper); } catch(e){}
+    window.scrollTo(0, prevScrollY);
   }
 }
 
@@ -1940,12 +1915,12 @@ window.emailPdf = async function(){
     await _spEnsurePdfFolder();
     const driveId = await _spGetDriveId();
 
-    // Make filename unique with HH-MM-SS so multiple sends per day don't collide
-    const now = new Date();
-    const timeStamp = now.toISOString().slice(11,19).replace(/:/g,'-');
-    const uniqueFilename = filename.replace(/\.pdf$/i, '_' + timeStamp + '.pdf');
+    // PDF filename: also keyed on client name so re-emailing the same client
+    // overwrites the previous PDF (keeps the PDFs folder tidy).
+    // Strip any pre-existing date suffix from the generated filename.
+    const stableFilename = filename.replace(/_\d{4}-\d{2}-\d{2}(?:_[\d-]+)?(?=\.pdf$)/i, '');
 
-    const pdfPath = SP_CONFIG.spFolderPath + '/PDFs/' + uniqueFilename;
+    const pdfPath = SP_CONFIG.spFolderPath + '/PDFs/' + stableFilename;
     const uploadUrl = 'https://graph.microsoft.com/v1.0/drives/' + driveId
       + '/root:/' + _spEncodePath(pdfPath) + ':/content';
     const uploadRes = await _graph(uploadUrl, {
@@ -1954,7 +1929,7 @@ window.emailPdf = async function(){
       body: pdfBlob
     });
     uploadedItem = await uploadRes.json();
-    filename = uniqueFilename;
+    filename = stableFilename;
   } catch(e) {
     console.error('[Email] upload failed:', e);
     toast.remove();
@@ -5945,17 +5920,23 @@ window.saveToSharePoint = async function(){
     };
     const json = JSON.stringify(payload, null, 2);
 
-    // Build a friendly filename — includes both client name AND saver username
-    // so the flat shared folder is easy to scan.
-    let nameBit = '';
+    // Build a deterministic filename per client so re-saving the same client
+    // overwrites the existing file instead of cluttering the list.
+    //   With client name : ODC-Agreement_Mary-Smith.json     (any teammate → same file)
+    //   Without name     : ODC-Agreement_Untitled-by-{user}.json  (drafts per user)
+    let clientSlug = '';
     try {
       const nameEl = document.getElementById('f_name');
       if (nameEl && nameEl.value) {
-        nameBit = '_' + nameEl.value.trim().replace(/[\\/:*?"<>|#%&{}]/g, '').replace(/\s+/g, '-').slice(0, 40);
+        clientSlug = nameEl.value.trim()
+          .replace(/[\\/:*?"<>|#%&{}]/g, '')
+          .replace(/\s+/g, '-')
+          .slice(0, 60);
       }
     } catch(e){}
-    const stamp = new Date().toISOString().slice(0, 19).replace('T', '_').replace(/:/g, '-');
-    const filename = 'ODC-Agreement' + nameBit + '_by-' + saverTag + '_' + stamp + '.json';
+    const filename = clientSlug
+      ? ('ODC-Agreement_' + clientSlug + '.json')
+      : ('ODC-Agreement_Untitled-by-' + saverTag + '.json');
 
     // Flat path — everyone saves into the same shared folder
     const fullPath = SP_CONFIG.spFolderPath + '/' + filename;
@@ -6033,7 +6014,7 @@ window.pickerRefresh = async function(){
     const url = 'https://graph.microsoft.com/v1.0/drives/' + driveId
       + '/root:/' + _spEncodePath(folderPath)
       + ':/children?$orderby=lastModifiedDateTime desc&$top=200'
-      + '&$select=id,name,size,lastModifiedDateTime,file,createdBy';
+      + '&$select=id,name,size,lastModifiedDateTime,file,createdBy,lastModifiedBy';
     let res;
     try { res = await _graph(url); }
     catch(e) {
@@ -6059,7 +6040,10 @@ window.pickerRefresh = async function(){
         const safeId = _spEscapeHtml(f.id);
         let savedBy = '';
         try {
-          if (f.createdBy && f.createdBy.user) {
+          // Prefer lastModifiedBy (who saved last); fall back to createdBy
+          if (f.lastModifiedBy && f.lastModifiedBy.user) {
+            savedBy = f.lastModifiedBy.user.displayName || f.lastModifiedBy.user.email || '';
+          } else if (f.createdBy && f.createdBy.user) {
             savedBy = f.createdBy.user.displayName || f.createdBy.user.email || '';
           }
         } catch(e){}
