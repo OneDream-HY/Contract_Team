@@ -346,7 +346,30 @@
     table { page-break-inside: auto; }
     thead { display: table-header-group; }
     tfoot { display: table-footer-group; }
-    tr { page-break-inside: avoid; break-inside: avoid; }
+    tr, td, th {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+      page-break-after: auto;
+    }
+    /* The label/value rows in the Key Terms style table use multi-line cells;
+       force each cell to stay on a single page so "Phone : 0433..." doesn't
+       split across pages mid-value. */
+    .doc-table tr, .doc-table td, .doc-table th {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+
+    /* Hide ALL placeholders in print — empty fields should print as a clean
+       blank underline, not show "Address" / "Phone" / "e.g. ..." text. */
+    input::placeholder, textarea::placeholder, .ff-inline::placeholder {
+      color: transparent !important;
+      opacity: 0 !important;
+    }
+    input:placeholder-shown, textarea:placeholder-shown,
+    .ff-inline:placeholder-shown {
+      color: transparent !important;
+    }
+    .ff.empty { color: transparent !important; border-bottom-color: #1a4f8a !important; }
 
     /* Common keep-together blocks */
     .doc-info-box, .doc-note, .alert, .sig-row, .acknowledgement,
@@ -1138,7 +1161,7 @@
       <div class="row g-3">
         <div class="col-md-5">
           <label class="form-label">Full Name <span class="required-star">*</span></label>
-          <input type="text" class="form-control" id="f_name" data-shared="p_name" placeholder="e.g. Mary Smith" oninput="live()">
+          <input type="text" class="form-control" id="f_name" data-shared="p_name" placeholder="" oninput="live()">
         </div>
         <div class="col-md-3">
           <label class="form-label">Date of Birth <span class="required-star">*</span></label>
@@ -1146,7 +1169,7 @@
         </div>
         <div class="col-md-4">
           <label class="form-label">Aged Care ID Number</label>
-          <input type="text" class="form-control" id="f_acId" data-shared="p_acId" placeholder="e.g. 123456789" oninput="live()">
+          <input type="text" class="form-control" id="f_acId" data-shared="p_acId" placeholder="" oninput="live()">
         </div>
       </div>
 
@@ -1176,7 +1199,7 @@
         </div>
         <div class="col-md-4">
           <label class="form-label">Suburb &amp; State</label>
-          <input type="text" class="form-control" id="f_suburb" data-shared="p_suburb" placeholder="e.g. Burwood NSW" oninput="live()">
+          <input type="text" class="form-control" id="f_suburb" data-shared="p_suburb" placeholder="" oninput="live()">
         </div>
         <div class="col-md-3">
           <label class="form-label">Postcode</label>
@@ -1189,15 +1212,15 @@
       <div class="row g-3">
         <div class="col-md-6">
           <label class="form-label">Emergency Contact (Name &amp; Phone) <span class="required-star">*</span></label>
-          <input type="text" class="form-control" id="f_emg" placeholder="e.g. John Smith – 0411 111 111" oninput="live()">
+          <input type="text" class="form-control" id="f_emg" placeholder="" oninput="live()">
         </div>
         <div class="col-md-6">
           <label class="form-label">Alternative Contact 1 (Name &amp; Phone)</label>
-          <input type="text" class="form-control" id="f_alt1" placeholder="e.g. Jane Doe – 0422 222 222" oninput="live()">
+          <input type="text" class="form-control" id="f_alt1" placeholder="" oninput="live()">
         </div>
         <div class="col-md-6">
           <label class="form-label">Alternative Contact 2 (Name &amp; Phone)</label>
-          <input type="text" class="form-control" id="f_alt2" placeholder="e.g. Robert Lee – 0433 333 333" oninput="live()">
+          <input type="text" class="form-control" id="f_alt2" placeholder="" oninput="live()">
         </div>
       </div>
 
@@ -1251,7 +1274,7 @@
         </div>
         <div class="col-md-4">
           <label class="form-label">Relationship</label>
-          <input type="text" class="form-control" id="f_supRel" placeholder="e.g. Daughter, Spouse" oninput="live()">
+          <input type="text" class="form-control" id="f_supRel" placeholder="" oninput="live()">
         </div>
         <div class="col-md-4">
           <label class="form-label">Supporter Phone</label>
@@ -1297,7 +1320,7 @@
         </div>
         <div class="col-md-4">
           <label class="form-label">Financial Institution</label>
-          <input type="text" class="form-control" id="f_ddBank" placeholder="e.g. Commonwealth Bank" oninput="live()">
+          <input type="text" class="form-control" id="f_ddBank" placeholder="" oninput="live()">
         </div>
         <div class="col-md-3">
           <label class="form-label">BSB Number</label>
@@ -2499,10 +2522,10 @@ function doc1_IntakeChecklist(name, docDate, officer) {
       ${docCover('Participant Intake Checklist', 'Document 1 · v1.0 · 2026')}
 
       <table class="doc-table">
-        <tr><td class="lbl">Participant name:</td><td class="val">${ff(name,'Enter name')}</td></tr>
-        <tr><td class="lbl">Assessment officer:</td><td class="val">${ff(officer,'Enter officer name')}</td></tr>
+        <tr><td class="lbl">Participant name:</td><td class="val">${ff(name, '')}</td></tr>
+        <tr><td class="lbl">Assessment officer:</td><td class="val">${ff(officer, '')}</td></tr>
         <tr><td class="lbl">Assessment officer signature:</td><td>${sigSlot('chk-officer-sig')}</td></tr>
-        <tr><td class="lbl">Date:</td><td class="val">${ff(docDate,'dd/mm/yyyy')}</td></tr>
+        <tr><td class="lbl">Date:</td><td class="val">${ff(docDate, '')}</td></tr>
       </table>
 
       <div class="no-print" style="display:flex; justify-content:flex-end; gap:8px; margin:8px 0 6px 0;">
@@ -2522,7 +2545,7 @@ function doc1_IntakeChecklist(name, docDate, officer) {
             <td class="lbl" style="width:40%;">Participant / Support person signature:</td>
             <td>${sigSlot('chk-participant-sig')}</td>
             <td class="lbl" style="width:22%;">Date:</td>
-            <td class="val">${ff(docDate,'dd/mm/yyyy')}</td>
+            <td class="val">${ff(docDate, '')}</td>
           </tr>
         </table>
       </div>
@@ -2645,13 +2668,13 @@ function doc3_EmergencyPlan(name, dob, street, suburb, postcode, mobile, emg, do
       ${docCover('Emergency and Disaster Management Plan', 'Document 3 · v1.0 · 2026')}
 
       <div class="doc-info-box">
-        <strong>Emergency and Non-Response Plan for:</strong> ${ff(name,'Participant name')}
+        <strong>Emergency and Non-Response Plan for:</strong> ${ff(name, '')}
       </div>
       <div class="doc-note">
         This emergency/non-response plan is intended to assist you in the event of an emergency, extreme weather, outbreak of Covid‑19, illness, incident or accident.
       </div>
 
-      <p style="font-size:.88rem;">I ${ff(name,'Participant name')} have read One Dream Community Emergency/Non‑Response Policy and understand that the staff have a duty of care to ensure my safety and wellbeing.</p>
+      <p style="font-size:.88rem;">I ${ff(name, '')} have read One Dream Community Emergency/Non‑Response Policy and understand that the staff have a duty of care to ensure my safety and wellbeing.</p>
 
       <div class="doc-section-h">Client Information</div>
       <table class="doc-table">
@@ -2719,7 +2742,7 @@ function doc3_EmergencyPlan(name, dob, street, suburb, postcode, mobile, emg, do
       <table class="doc-table" style="margin-bottom:12px;">
         <tr>
           <td class="lbl" style="width:25%;">Key Safe Location:</td>
-          <td><input type="text" placeholder="e.g. Front porch, side gate" style="border:none; border-bottom:1px solid #999; font-size:.85rem; width:95%; background:transparent;"></td>
+          <td><input type="text" placeholder="" style="border:none; border-bottom:1px solid #999; font-size:.85rem; width:95%; background:transparent;"></td>
           <td class="lbl" style="width:18%;">Lock Code:</td>
           <td><input type="text" placeholder="Code" style="border:none; border-bottom:1px solid #999; font-size:.85rem; width:90%; background:transparent;"></td>
         </tr>
@@ -2812,7 +2835,7 @@ function doc3_EmergencyPlan(name, dob, street, suburb, postcode, mobile, emg, do
             <td class="val">${ff(docDate)}</td>
           </tr>
           <tr>
-            <td><strong>Staff Member:</strong> ${ff(document.getElementById('f_officer')?.value||'','')}</td>
+            <td><strong>Staff Member:</strong> ${ff(document.getElementById('f_officer')?.value||'', '')}</td>
             <td>${sigSlot('emg-staff-sig')}</td>
             <td class="val">${ff(docDate)}</td>
           </tr>
@@ -2896,21 +2919,21 @@ function doc5_Sydney(name, address, street, suburb, postcode, mobile, phone, ema
           <td class="lbl">Legal Personal Representative</td>
           <td class="val">
             <strong>Name:</strong> ${ff(legal)}<br>
-            <strong>Address:</strong> ${ff('', 'Address')}<br>
-            <strong>Phone:</strong> ${ff('', 'Phone')}<br>
-            <strong>Email:</strong> ${ff('', 'Email')}<br>
-            <strong>Legal Authority:</strong> ${ff('', 'e.g. Power of Attorney')}<br>
-            <strong>Evidence Provided:</strong> ${ff('', 'Evidence type')}
+            <strong>Address:</strong> ${ff('', '')}<br>
+            <strong>Phone:</strong> ${ff('', '')}<br>
+            <strong>Email:</strong> ${ff('', '')}<br>
+            <strong>Legal Authority:</strong> ${ff('', '')}<br>
+            <strong>Evidence Provided:</strong> ${ff('', '')}
           </td>
         </tr>
         <tr>
           <td class="lbl">Supporter(s)</td>
           <td class="val">
-            <strong>Name:</strong> ${ff(supName, 'Supporter name')}<br>
-            <strong>Relationship:</strong> ${ff(supRel, 'e.g. Daughter')}<br>
-            <strong>Address:</strong> ${ff(supAddr, 'Address')}<br>
-            <strong>Phone:</strong> ${ff(supPhone, 'Phone')}<br>
-            <strong>Email:</strong> ${ff(supEmail, 'Email')}
+            <strong>Name:</strong> ${ff(supName, '')}<br>
+            <strong>Relationship:</strong> ${ff(supRel, '')}<br>
+            <strong>Address:</strong> ${ff(supAddr, '')}<br>
+            <strong>Phone:</strong> ${ff(supPhone, '')}<br>
+            <strong>Email:</strong> ${ff(supEmail, '')}
           </td>
         </tr>
         <tr>
@@ -2961,9 +2984,9 @@ function doc5_Sydney(name, address, street, suburb, postcode, mobile, phone, ema
           <td class="lbl">Individual Contribution Rate<br><span style="font-weight:400;font-size:.78rem;color:#888;">Set by Services Australia &#8212; enter if known, or leave blank</span></td>
           <td>
             <table style="width:100%;font-size:.85rem;border-collapse:collapse;">
-              <tr><td style="padding:2px 4px;width:40%;"><strong>Clinical Supports:</strong></td><td><input type="text" placeholder="e.g. 12% or TBC" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
-              <tr><td style="padding:2px 4px;"><strong>Independence:</strong></td><td><input type="text" placeholder="e.g. 12% or TBC" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
-              <tr><td style="padding:2px 4px;"><strong>Everyday Living:</strong></td><td><input type="text" placeholder="e.g. 12% or TBC" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
+              <tr><td style="padding:2px 4px;width:40%;"><strong>Clinical Supports:</strong></td><td><input type="text" placeholder="" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
+              <tr><td style="padding:2px 4px;"><strong>Independence:</strong></td><td><input type="text" placeholder="" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
+              <tr><td style="padding:2px 4px;"><strong>Everyday Living:</strong></td><td><input type="text" placeholder="" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
             </table>
           </td>
         </tr>
@@ -2971,9 +2994,9 @@ function doc5_Sydney(name, address, street, suburb, postcode, mobile, phone, ema
           <td class="lbl">Interim Contribution Rate<br><span style="font-weight:400;font-size:.78rem;color:#888;">Enter if applicable, or N/A</span></td>
           <td>
             <table style="width:100%;font-size:.85rem;border-collapse:collapse;">
-              <tr><td style="padding:2px 4px;width:40%;"><strong>Clinical Supports:</strong></td><td><input type="text" placeholder="e.g. 12% or N/A" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
-              <tr><td style="padding:2px 4px;"><strong>Independence:</strong></td><td><input type="text" placeholder="e.g. 12% or N/A" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
-              <tr><td style="padding:2px 4px;"><strong>Everyday Living:</strong></td><td><input type="text" placeholder="e.g. 12% or N/A" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
+              <tr><td style="padding:2px 4px;width:40%;"><strong>Clinical Supports:</strong></td><td><input type="text" placeholder="" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
+              <tr><td style="padding:2px 4px;"><strong>Independence:</strong></td><td><input type="text" placeholder="" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
+              <tr><td style="padding:2px 4px;"><strong>Everyday Living:</strong></td><td><input type="text" placeholder="" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
             </table>
           </td>
         </tr>
@@ -3130,8 +3153,8 @@ function doc5_Sydney(name, address, street, suburb, postcode, mobile, phone, ema
           <td style="width:50%;font-size:.85rem;">Signed on behalf of <strong>One Dream Community Care Service</strong><br>by its duly authorised representative who by their execution warrants their authority to execute this instrument:</td>
           <td>
             <div style="margin-bottom:6px;"><strong>Signature of authorised representative:</strong><br>${sigSlot('sa-provider-sig')}</div>
-            <div style="margin-bottom:6px;"><strong>Name of authorised representative:</strong><br>${ff('', 'Full name')}</div>
-            <div><strong>Position:</strong><br>${ff('', 'e.g. Director')}</div>
+            <div style="margin-bottom:6px;"><strong>Name of authorised representative:</strong><br>${ff('', '')}</div>
+            <div><strong>Position:</strong><br>${ff('', '')}</div>
           </td>
         </tr>
         <tr style="background:#eaf2e6;">
@@ -3160,11 +3183,11 @@ function doc5_Sydney(name, address, street, suburb, postcode, mobile, phone, ema
           <td style="font-size:.83rem;">Signed on behalf of <strong>${ff(name)}</strong> by their nominated Supporter (family member or carer):</td>
           <td>
             <div style="margin-bottom:6px;"><strong>Signature of Supporter:</strong><br>${sigSlot('sa-supporter-sig')}</div>
-            <div style="margin-bottom:4px;"><strong>Name of Supporter:</strong><br>${ff(supName, 'Supporter name')}</div>
-            <div style="margin-bottom:4px;"><strong>Relationship to Participant:</strong><br>${ff(supRel, 'e.g. Daughter')}</div>
-            <div style="margin-bottom:4px;"><strong>Address of Supporter:</strong><br>${ff(supAddr, 'Address')}</div>
-            <div style="margin-bottom:4px;"><strong>Phone:</strong> ${ff(supPhone, 'Phone')} &nbsp; <strong>Email:</strong> ${ff(supEmail, 'Email')}</div>
-            <div><strong>Date signed:</strong> ${ff(docDate, 'dd/mm/yyyy')}</div>
+            <div style="margin-bottom:4px;"><strong>Name of Supporter:</strong><br>${ff(supName, '')}</div>
+            <div style="margin-bottom:4px;"><strong>Relationship to Participant:</strong><br>${ff(supRel, '')}</div>
+            <div style="margin-bottom:4px;"><strong>Address of Supporter:</strong><br>${ff(supAddr, '')}</div>
+            <div style="margin-bottom:4px;"><strong>Phone:</strong> ${ff(supPhone, '')} &nbsp; <strong>Email:</strong> ${ff(supEmail, '')}</div>
+            <div><strong>Date signed:</strong> ${ff(docDate, '')}</div>
           </td>
         </tr>
         <tr style="background:#f5f5f5;">
@@ -3174,9 +3197,9 @@ function doc5_Sydney(name, address, street, suburb, postcode, mobile, phone, ema
           <td style="font-size:.83rem;">Signed on behalf of <strong>${ff(name)}</strong> by their duly appointed attorney, being duly authorised in this behalf:</td>
           <td>
             <div style="margin-bottom:6px;"><strong>Signature of Attorney:</strong><br>${sigSlot('sa-attorney-sig')}</div>
-            <div style="margin-bottom:4px;"><strong>Address of Attorney:</strong><br>${ff(attAddr, 'Address')}</div>
-            <div style="margin-bottom:4px;"><strong>Power of Attorney date:</strong><br>${ff(attPoaDate, 'dd/mm/yyyy')}</div>
-            <div><strong>Date signed:</strong> ${ff(attSignDate, 'dd/mm/yyyy')}</div>
+            <div style="margin-bottom:4px;"><strong>Address of Attorney:</strong><br>${ff(attAddr, '')}</div>
+            <div style="margin-bottom:4px;"><strong>Power of Attorney date:</strong><br>${ff(attPoaDate, '')}</div>
+            <div><strong>Date signed:</strong> ${ff(attSignDate, '')}</div>
           </td>
         </tr>
       </table>
@@ -3653,21 +3676,21 @@ function doc5_Others(name, address, street, suburb, postcode, mobile, phone, ema
           <td class="lbl">Legal Personal Representative</td>
           <td class="val">
             <strong>Name:</strong> ${ff(legal)}<br>
-            <strong>Address:</strong> ${ff('', 'Address')}<br>
-            <strong>Phone:</strong> ${ff('', 'Phone')}<br>
-            <strong>Email:</strong> ${ff('', 'Email')}<br>
-            <strong>Legal Authority:</strong> ${ff('', 'e.g. Power of Attorney')}<br>
-            <strong>Evidence Provided:</strong> ${ff('', 'Evidence type')}
+            <strong>Address:</strong> ${ff('', '')}<br>
+            <strong>Phone:</strong> ${ff('', '')}<br>
+            <strong>Email:</strong> ${ff('', '')}<br>
+            <strong>Legal Authority:</strong> ${ff('', '')}<br>
+            <strong>Evidence Provided:</strong> ${ff('', '')}
           </td>
         </tr>
         <tr>
           <td class="lbl">Supporter(s)</td>
           <td class="val">
-            <strong>Name:</strong> ${ff(supName, 'Supporter name')}<br>
-            <strong>Relationship:</strong> ${ff(supRel, 'e.g. Daughter')}<br>
-            <strong>Address:</strong> ${ff(supAddr, 'Address')}<br>
-            <strong>Phone:</strong> ${ff(supPhone, 'Phone')}<br>
-            <strong>Email:</strong> ${ff(supEmail, 'Email')}
+            <strong>Name:</strong> ${ff(supName, '')}<br>
+            <strong>Relationship:</strong> ${ff(supRel, '')}<br>
+            <strong>Address:</strong> ${ff(supAddr, '')}<br>
+            <strong>Phone:</strong> ${ff(supPhone, '')}<br>
+            <strong>Email:</strong> ${ff(supEmail, '')}
           </td>
         </tr>
         <tr>
@@ -3718,9 +3741,9 @@ function doc5_Others(name, address, street, suburb, postcode, mobile, phone, ema
           <td class="lbl">Individual Contribution Rate<br><span style="font-weight:400;font-size:.78rem;color:#888;">Set by Services Australia &#8212; enter if known, or leave blank</span></td>
           <td>
             <table style="width:100%;font-size:.85rem;border-collapse:collapse;">
-              <tr><td style="padding:2px 4px;width:40%;"><strong>Clinical Supports:</strong></td><td><input type="text" placeholder="e.g. 12% or TBC" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
-              <tr><td style="padding:2px 4px;"><strong>Independence:</strong></td><td><input type="text" placeholder="e.g. 12% or TBC" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
-              <tr><td style="padding:2px 4px;"><strong>Everyday Living:</strong></td><td><input type="text" placeholder="e.g. 12% or TBC" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
+              <tr><td style="padding:2px 4px;width:40%;"><strong>Clinical Supports:</strong></td><td><input type="text" placeholder="" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
+              <tr><td style="padding:2px 4px;"><strong>Independence:</strong></td><td><input type="text" placeholder="" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
+              <tr><td style="padding:2px 4px;"><strong>Everyday Living:</strong></td><td><input type="text" placeholder="" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
             </table>
           </td>
         </tr>
@@ -3728,9 +3751,9 @@ function doc5_Others(name, address, street, suburb, postcode, mobile, phone, ema
           <td class="lbl">Interim Contribution Rate<br><span style="font-weight:400;font-size:.78rem;color:#888;">Enter if applicable, or N/A</span></td>
           <td>
             <table style="width:100%;font-size:.85rem;border-collapse:collapse;">
-              <tr><td style="padding:2px 4px;width:40%;"><strong>Clinical Supports:</strong></td><td><input type="text" placeholder="e.g. 12% or N/A" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
-              <tr><td style="padding:2px 4px;"><strong>Independence:</strong></td><td><input type="text" placeholder="e.g. 12% or N/A" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
-              <tr><td style="padding:2px 4px;"><strong>Everyday Living:</strong></td><td><input type="text" placeholder="e.g. 12% or N/A" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
+              <tr><td style="padding:2px 4px;width:40%;"><strong>Clinical Supports:</strong></td><td><input type="text" placeholder="" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
+              <tr><td style="padding:2px 4px;"><strong>Independence:</strong></td><td><input type="text" placeholder="" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
+              <tr><td style="padding:2px 4px;"><strong>Everyday Living:</strong></td><td><input type="text" placeholder="" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
             </table>
           </td>
         </tr>
@@ -3887,8 +3910,8 @@ function doc5_Others(name, address, street, suburb, postcode, mobile, phone, ema
           <td style="width:50%;font-size:.85rem;">Signed on behalf of <strong>One Dream Community Care Service</strong><br>by its duly authorised representative who by their execution warrants their authority to execute this instrument:</td>
           <td>
             <div style="margin-bottom:6px;"><strong>Signature of authorised representative:</strong><br>${sigSlot('sa-provider-sig')}</div>
-            <div style="margin-bottom:6px;"><strong>Name of authorised representative:</strong><br>${ff('', 'Full name')}</div>
-            <div><strong>Position:</strong><br>${ff('', 'e.g. Director')}</div>
+            <div style="margin-bottom:6px;"><strong>Name of authorised representative:</strong><br>${ff('', '')}</div>
+            <div><strong>Position:</strong><br>${ff('', '')}</div>
           </td>
         </tr>
         <tr style="background:#eaf2e6;">
@@ -3917,11 +3940,11 @@ function doc5_Others(name, address, street, suburb, postcode, mobile, phone, ema
           <td style="font-size:.83rem;">Signed on behalf of <strong>${ff(name)}</strong> by their nominated Supporter (family member or carer):</td>
           <td>
             <div style="margin-bottom:6px;"><strong>Signature of Supporter:</strong><br>${sigSlot('sa-supporter-sig')}</div>
-            <div style="margin-bottom:4px;"><strong>Name of Supporter:</strong><br>${ff(supName, 'Supporter name')}</div>
-            <div style="margin-bottom:4px;"><strong>Relationship to Participant:</strong><br>${ff(supRel, 'e.g. Daughter')}</div>
-            <div style="margin-bottom:4px;"><strong>Address of Supporter:</strong><br>${ff(supAddr, 'Address')}</div>
-            <div style="margin-bottom:4px;"><strong>Phone:</strong> ${ff(supPhone, 'Phone')} &nbsp; <strong>Email:</strong> ${ff(supEmail, 'Email')}</div>
-            <div><strong>Date signed:</strong> ${ff(docDate, 'dd/mm/yyyy')}</div>
+            <div style="margin-bottom:4px;"><strong>Name of Supporter:</strong><br>${ff(supName, '')}</div>
+            <div style="margin-bottom:4px;"><strong>Relationship to Participant:</strong><br>${ff(supRel, '')}</div>
+            <div style="margin-bottom:4px;"><strong>Address of Supporter:</strong><br>${ff(supAddr, '')}</div>
+            <div style="margin-bottom:4px;"><strong>Phone:</strong> ${ff(supPhone, '')} &nbsp; <strong>Email:</strong> ${ff(supEmail, '')}</div>
+            <div><strong>Date signed:</strong> ${ff(docDate, '')}</div>
           </td>
         </tr>
         <tr style="background:#f5f5f5;">
@@ -3931,9 +3954,9 @@ function doc5_Others(name, address, street, suburb, postcode, mobile, phone, ema
           <td style="font-size:.83rem;">Signed on behalf of <strong>${ff(name)}</strong> by their duly appointed attorney, being duly authorised in this behalf:</td>
           <td>
             <div style="margin-bottom:6px;"><strong>Signature of Attorney:</strong><br>${sigSlot('sa-attorney-sig')}</div>
-            <div style="margin-bottom:4px;"><strong>Address of Attorney:</strong><br>${ff(attAddr, 'Address')}</div>
-            <div style="margin-bottom:4px;"><strong>Power of Attorney date:</strong><br>${ff(attPoaDate, 'dd/mm/yyyy')}</div>
-            <div><strong>Date signed:</strong> ${ff(attSignDate, 'dd/mm/yyyy')}</div>
+            <div style="margin-bottom:4px;"><strong>Address of Attorney:</strong><br>${ff(attAddr, '')}</div>
+            <div style="margin-bottom:4px;"><strong>Power of Attorney date:</strong><br>${ff(attPoaDate, '')}</div>
+            <div><strong>Date signed:</strong> ${ff(attSignDate, '')}</div>
           </td>
         </tr>
       </table>
@@ -4410,21 +4433,21 @@ function doc5_SelfManaged(name, address, street, suburb, postcode, mobile, phone
           <td class="lbl">Legal Personal Representative</td>
           <td class="val">
             <strong>Name:</strong> ${ff(legal)}<br>
-            <strong>Address:</strong> ${ff('', 'Address')}<br>
-            <strong>Phone:</strong> ${ff('', 'Phone')}<br>
-            <strong>Email:</strong> ${ff('', 'Email')}<br>
-            <strong>Legal Authority:</strong> ${ff('', 'e.g. Power of Attorney')}<br>
-            <strong>Evidence Provided:</strong> ${ff('', 'Evidence type')}
+            <strong>Address:</strong> ${ff('', '')}<br>
+            <strong>Phone:</strong> ${ff('', '')}<br>
+            <strong>Email:</strong> ${ff('', '')}<br>
+            <strong>Legal Authority:</strong> ${ff('', '')}<br>
+            <strong>Evidence Provided:</strong> ${ff('', '')}
           </td>
         </tr>
         <tr>
           <td class="lbl">Supporter(s)</td>
           <td class="val">
-            <strong>Name:</strong> ${ff(supName, 'Supporter name')}<br>
-            <strong>Relationship:</strong> ${ff(supRel, 'e.g. Daughter')}<br>
-            <strong>Address:</strong> ${ff(supAddr, 'Address')}<br>
-            <strong>Phone:</strong> ${ff(supPhone, 'Phone')}<br>
-            <strong>Email:</strong> ${ff(supEmail, 'Email')}
+            <strong>Name:</strong> ${ff(supName, '')}<br>
+            <strong>Relationship:</strong> ${ff(supRel, '')}<br>
+            <strong>Address:</strong> ${ff(supAddr, '')}<br>
+            <strong>Phone:</strong> ${ff(supPhone, '')}<br>
+            <strong>Email:</strong> ${ff(supEmail, '')}
           </td>
         </tr>
         <tr>
@@ -4475,9 +4498,9 @@ function doc5_SelfManaged(name, address, street, suburb, postcode, mobile, phone
           <td class="lbl">Individual Contribution Rate<br><span style="font-weight:400;font-size:.78rem;color:#888;">Set by Services Australia &#8212; enter if known, or leave blank</span></td>
           <td>
             <table style="width:100%;font-size:.85rem;border-collapse:collapse;">
-              <tr><td style="padding:2px 4px;width:40%;"><strong>Clinical Supports:</strong></td><td><input type="text" placeholder="e.g. 12% or TBC" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
-              <tr><td style="padding:2px 4px;"><strong>Independence:</strong></td><td><input type="text" placeholder="e.g. 12% or TBC" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
-              <tr><td style="padding:2px 4px;"><strong>Everyday Living:</strong></td><td><input type="text" placeholder="e.g. 12% or TBC" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
+              <tr><td style="padding:2px 4px;width:40%;"><strong>Clinical Supports:</strong></td><td><input type="text" placeholder="" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
+              <tr><td style="padding:2px 4px;"><strong>Independence:</strong></td><td><input type="text" placeholder="" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
+              <tr><td style="padding:2px 4px;"><strong>Everyday Living:</strong></td><td><input type="text" placeholder="" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
             </table>
           </td>
         </tr>
@@ -4485,9 +4508,9 @@ function doc5_SelfManaged(name, address, street, suburb, postcode, mobile, phone
           <td class="lbl">Interim Contribution Rate<br><span style="font-weight:400;font-size:.78rem;color:#888;">Enter if applicable, or N/A</span></td>
           <td>
             <table style="width:100%;font-size:.85rem;border-collapse:collapse;">
-              <tr><td style="padding:2px 4px;width:40%;"><strong>Clinical Supports:</strong></td><td><input type="text" placeholder="e.g. 12% or N/A" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
-              <tr><td style="padding:2px 4px;"><strong>Independence:</strong></td><td><input type="text" placeholder="e.g. 12% or N/A" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
-              <tr><td style="padding:2px 4px;"><strong>Everyday Living:</strong></td><td><input type="text" placeholder="e.g. 12% or N/A" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
+              <tr><td style="padding:2px 4px;width:40%;"><strong>Clinical Supports:</strong></td><td><input type="text" placeholder="" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
+              <tr><td style="padding:2px 4px;"><strong>Independence:</strong></td><td><input type="text" placeholder="" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
+              <tr><td style="padding:2px 4px;"><strong>Everyday Living:</strong></td><td><input type="text" placeholder="" style="border:none;outline:none;border-bottom:1px solid #ccc;width:100%;font-size:.85rem;background:transparent;"></td></tr>
             </table>
           </td>
         </tr>
@@ -4657,8 +4680,8 @@ function doc5_SelfManaged(name, address, street, suburb, postcode, mobile, phone
           <td style="width:50%;font-size:.85rem;">Signed on behalf of <strong>One Dream Community Care Service</strong><br>by its duly authorised representative who by their execution warrants their authority to execute this instrument:</td>
           <td>
             <div style="margin-bottom:6px;"><strong>Signature of authorised representative:</strong><br>${sigSlot('sa-provider-sig')}</div>
-            <div style="margin-bottom:6px;"><strong>Name of authorised representative:</strong><br>${ff('', 'Full name')}</div>
-            <div><strong>Position:</strong><br>${ff('', 'e.g. Director')}</div>
+            <div style="margin-bottom:6px;"><strong>Name of authorised representative:</strong><br>${ff('', '')}</div>
+            <div><strong>Position:</strong><br>${ff('', '')}</div>
           </td>
         </tr>
         <tr style="background:#eaf2e6;">
@@ -4687,11 +4710,11 @@ function doc5_SelfManaged(name, address, street, suburb, postcode, mobile, phone
           <td style="font-size:.83rem;">Signed on behalf of <strong>${ff(name)}</strong> by their nominated Supporter (family member or carer):</td>
           <td>
             <div style="margin-bottom:6px;"><strong>Signature of Supporter:</strong><br>${sigSlot('sa-supporter-sig')}</div>
-            <div style="margin-bottom:4px;"><strong>Name of Supporter:</strong><br>${ff(supName, 'Supporter name')}</div>
-            <div style="margin-bottom:4px;"><strong>Relationship to Participant:</strong><br>${ff(supRel, 'e.g. Daughter')}</div>
-            <div style="margin-bottom:4px;"><strong>Address of Supporter:</strong><br>${ff(supAddr, 'Address')}</div>
-            <div style="margin-bottom:4px;"><strong>Phone:</strong> ${ff(supPhone, 'Phone')} &nbsp; <strong>Email:</strong> ${ff(supEmail, 'Email')}</div>
-            <div><strong>Date signed:</strong> ${ff(docDate, 'dd/mm/yyyy')}</div>
+            <div style="margin-bottom:4px;"><strong>Name of Supporter:</strong><br>${ff(supName, '')}</div>
+            <div style="margin-bottom:4px;"><strong>Relationship to Participant:</strong><br>${ff(supRel, '')}</div>
+            <div style="margin-bottom:4px;"><strong>Address of Supporter:</strong><br>${ff(supAddr, '')}</div>
+            <div style="margin-bottom:4px;"><strong>Phone:</strong> ${ff(supPhone, '')} &nbsp; <strong>Email:</strong> ${ff(supEmail, '')}</div>
+            <div><strong>Date signed:</strong> ${ff(docDate, '')}</div>
           </td>
         </tr>
         <tr style="background:#f5f5f5;">
@@ -4701,9 +4724,9 @@ function doc5_SelfManaged(name, address, street, suburb, postcode, mobile, phone
           <td style="font-size:.83rem;">Signed on behalf of <strong>${ff(name)}</strong> by their duly appointed attorney, being duly authorised in this behalf:</td>
           <td>
             <div style="margin-bottom:6px;"><strong>Signature of Attorney:</strong><br>${sigSlot('sa-attorney-sig')}</div>
-            <div style="margin-bottom:4px;"><strong>Address of Attorney:</strong><br>${ff(attAddr, 'Address')}</div>
-            <div style="margin-bottom:4px;"><strong>Power of Attorney date:</strong><br>${ff(attPoaDate, 'dd/mm/yyyy')}</div>
-            <div><strong>Date signed:</strong> ${ff(attSignDate, 'dd/mm/yyyy')}</div>
+            <div style="margin-bottom:4px;"><strong>Address of Attorney:</strong><br>${ff(attAddr, '')}</div>
+            <div style="margin-bottom:4px;"><strong>Power of Attorney date:</strong><br>${ff(attPoaDate, '')}</div>
+            <div><strong>Date signed:</strong> ${ff(attSignDate, '')}</div>
           </td>
         </tr>
       </table>
